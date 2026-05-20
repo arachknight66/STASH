@@ -8,6 +8,8 @@ import Toast from '@/components/ui/Toast';
 import DashPage    from '@/components/pages/DashPage';
 import FeedPage    from '@/components/pages/FeedPage';
 import BucketsPage from '@/components/pages/BucketsPage';
+import BillsPage   from '@/components/pages/BillsPage';
+import SubsPage    from '@/components/pages/SubsPage';
 import IntelPage   from '@/components/pages/IntelPage';
 import { AnimatePresence, motion } from 'framer-motion';
 
@@ -31,10 +33,13 @@ export default function Home() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -15 }}
           transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
+          className="pb-20"
         >
           {currentPage === 'dash'    && <DashPage    />}
           {currentPage === 'feed'    && <FeedPage    />}
           {currentPage === 'buckets' && <BucketsPage />}
+          {currentPage === 'bills'   && <BillsPage   />}
+          {currentPage === 'subs'    && <SubsPage    />}
           {currentPage === 'intel'   && <IntelPage   />}
         </motion.div>
       </AnimatePresence>

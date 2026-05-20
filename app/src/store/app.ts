@@ -4,7 +4,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { CurrencyCode } from '@/lib/currencies';
 
-type Page = 'dash' | 'feed' | 'buckets' | 'intel';
+export type Page = 'dash' | 'feed' | 'buckets' | 'bills' | 'subs' | 'intel';
 
 interface AppState {
   currentPage: Page;

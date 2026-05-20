@@ -1,24 +1,35 @@
 import { SignJWT, jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-stash-key-do-not-use-in-prod';
-const key = new TextEncoder().encode(JWT_SECRET);
-
 export const AUTH_COOKIE = 'stash_session';
+
+/** Lazily resolve the signing key so the throw only happens at request time, not build time. */
+function getKey(): Uint8Array {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('FATAL: JWT_SECRET environment variable is not configured in production.');
+    }
+    // Dev-only fallback — logged as a warning, never silently accepted in prod
+    console.warn('⚠️  JWT_SECRET not set — using insecure dev fallback key.');
+    return new TextEncoder().encode('dev-fallback-stash-key-unsafe');
+  }
+  return new TextEncoder().encode(secret);
+}
 
 export async function signToken(userId: string) {
   return await new SignJWT({ userId })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime('7d')
-    .sign(key);
+    .sign(getKey());
 }
 
 export async function verifyToken(token: string) {
   try {
-    const { payload } = await jwtVerify(token, key);
+    const { payload } = await jwtVerify(token, getKey());
     return payload.userId as string;
-  } catch (err) {
+  } catch {
     return null;
   }
 }

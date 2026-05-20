@@ -4,7 +4,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 // ─── Enums ───────────────────────────────────────────────────────────────────
@@ -12,18 +11,45 @@ datasource db {
 enum TransactionType {
   EXPENSE
   INCOME
+  TRANSFER
+  REFUND
 }
 
-enum TransactionCategory {
-  FOOD
-  DRIP
-  ENTERTAINMENT
-  TRANSPORT
-  BILLS
-  COFFEE
+enum AccountType {
+  CASH
+  WALLET
   SAVINGS
-  INCOME
+  SPENDING
+  CREDIT_CARD_MANUAL
+  SHARED_POOL
+  EMERGENCY_FUND
   OTHER
+}
+
+enum BudgetScope {
+  OVERALL
+  CATEGORY
+}
+
+enum BillingCycle {
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+  CUSTOM
+}
+
+enum BillStatus {
+  ACTIVE
+  PAUSED
+  CLOSED
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAUSED
+  CANCELED
+  TRIAL
 }
 
 enum BucketTheme {
@@ -62,25 +88,134 @@ model User {
   buckets       Bucket[]
   notifications Notification[]
   settings      Settings?
+  accounts      Account[]
+  budgets       Budget[]
+  bills         Bill[]
+  subscriptions Subscription[]
+}
+
+model Account {
+  id             String      @id @default(cuid())
+  userId         String
+  name           String
+  type           AccountType
+  description    String?
+  openingBalance Float       @default(0)
+  currentBalance Float       @default(0)
+  currency       Currency    @default(USD)
+  colorTheme     String?     // hex color or theme token
+  icon           String?     // icon identifier
+  isArchived     Boolean     @default(false)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions   Transaction[] @relation("AccountTransactions")
+  transfers      Transaction[] @relation("CounterpartyTransactions")
+
+  @@index([userId])
 }
 
 model Transaction {
-  id          String              @id @default(cuid())
-  userId      String
-  merchant    String
-  amount      Float               // always stored in USD
-  type        TransactionType
-  category    TransactionCategory
-  note        String?
-  aiInsight   String?
-  tags        String[]
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
+  id                    String              @id @default(cuid())
+  userId                String
+  accountId             String?
+  counterpartyAccountId String?
+  merchant              String
+  amount                Float               // always stored in USD/base currency
+  type                  TransactionType
+  category              String
+  subCategory           String?
+  note                  String?
+  aiInsight             String?
+  tags                  String[]
+  createdAt             DateTime            @default(now())
+  occurredAt            DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  source                String              @default("MANUAL") // MANUAL, SYSTEM, SUBSCRIPTION, BILL
+  status                String              @default("POSTED") // POSTED, PENDING
+  isRecurringCandidate  Boolean             @default(false)
+  linkedSubscriptionId  String?
+  linkedBillId          String?
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                  User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account               Account?            @relation("AccountTransactions", fields: [accountId], references: [id], onDelete: Cascade)
+  counterpartyAccount   Account?            @relation("CounterpartyTransactions", fields: [counterpartyAccountId], references: [id], onDelete: SetNull)
+  subscription          Subscription?       @relation(fields: [linkedSubscriptionId], references: [id], onDelete: SetNull)
+  bill                  Bill?               @relation(fields: [linkedBillId], references: [id], onDelete: SetNull)
 
-  @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, occurredAt(sort: Desc)])
   @@index([userId, category])
+  @@index([accountId])
+}
+
+model Budget {
+  id               String      @id @default(cuid())
+  userId           String
+  name             String
+  scope            BudgetScope
+  category         String?
+  amount           Float
+  period           String      @default("MONTHLY")
+  startDay         Int         @default(1)
+  alertThresholdPct Float       @default(80.0)
+  isActive         Boolean     @default(true)
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  user             User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Bill {
+  id                 String       @id @default(cuid())
+  userId             String
+  name               String
+  category           String
+  amountExpected     Float?
+  amountLastPaid     Float?
+  accountId          String?
+  billingCycle       BillingCycle
+  nextDueDate        DateTime
+  autopay            Boolean      @default(false)
+  status             BillStatus   @default(ACTIVE)
+  reminderDaysBefore Int          @default(3)
+  notes              String?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  user               User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions       Transaction[]
+
+  @@index([userId])
+}
+
+model Subscription {
+  id                String             @id @default(cuid())
+  userId            String
+  name              String
+  provider          String
+  category          String
+  amount            Float
+  currency          Currency           @default(USD)
+  billingCycle      BillingCycle
+  nextBillingDate   DateTime
+  lastChargedAt     DateTime?
+  status            SubscriptionStatus @default(ACTIVE)
+  autopay           Boolean            @default(false)
+  accountId         String?
+  merchantMatchRule String?
+  notes             String?
+  icon              String?
+  colorTheme        String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions      Transaction[]
+
+  @@index([userId])
 }
 
 model Bucket {
