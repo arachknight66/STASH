@@ -37,7 +37,59 @@ export function useCreateTransaction() {
       if (!json.success) throw new Error(json.error);
       return json.data as Transaction;
     },
-    onSuccess: () => {
+    onMutate: async (newTxInput) => {
+      await qc.cancelQueries({ queryKey: ['transactions'] });
+      await qc.cancelQueries({ queryKey: ['stats'] });
+
+      const previousQueries = qc.getQueriesData({ queryKey: ['transactions'] });
+      const prevStats = qc.getQueryData<any>(['stats']);
+
+      const tempTx: any = {
+        id: `opt-${Date.now()}`,
+        userId: 'temp',
+        merchant: newTxInput.merchant,
+        amount: newTxInput.amount,
+        type: newTxInput.type,
+        category: newTxInput.category,
+        note: newTxInput.note || null,
+        aiInsight: 'Syncing insight...',
+        tags: ['syncing...'],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        isOptimistic: true,
+      };
+
+      qc.setQueriesData({ queryKey: ['transactions'] }, (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          items: [tempTx, ...old.items],
+          total: old.total + 1,
+        };
+      });
+
+      if (prevStats) {
+        const change = newTxInput.type === 'INCOME' ? newTxInput.amount : -newTxInput.amount;
+        qc.setQueryData(['stats'], {
+          ...prevStats,
+          liquidity: prevStats.liquidity + change,
+          netWorth: prevStats.netWorth + change,
+        });
+      }
+
+      return { previousQueries, prevStats };
+    },
+    onError: (err, newTxInput, context: any) => {
+      if (context?.previousQueries) {
+        context.previousQueries.forEach(([queryKey, value]: any) => {
+          qc.setQueryData(queryKey, value);
+        });
+      }
+      if (context?.prevStats) {
+        qc.setQueryData(['stats'], context.prevStats);
+      }
+    },
+    onSettled: () => {
       qc.invalidateQueries({ queryKey: ['transactions'] });
       qc.invalidateQueries({ queryKey: ['stats'] });
     },
@@ -55,7 +107,52 @@ export function useDeleteTransaction() {
       const json = await res.json();
       if (!json.success) throw new Error(json.error);
     },
-    onSuccess: () => {
+    onMutate: async (id) => {
+      await qc.cancelQueries({ queryKey: ['transactions'] });
+      await qc.cancelQueries({ queryKey: ['stats'] });
+
+      const previousQueries = qc.getQueriesData({ queryKey: ['transactions'] });
+      const prevStats = qc.getQueryData<any>(['stats']);
+
+      let deletedAmount = 0;
+      let deletedType = 'EXPENSE';
+
+      qc.setQueriesData({ queryKey: ['transactions'] }, (old: any) => {
+        if (!old) return old;
+        const target = old.items?.find((t: any) => t.id === id);
+        if (target) {
+          deletedAmount = target.amount;
+          deletedType = target.type;
+        }
+        return {
+          ...old,
+          items: old.items?.filter((t: any) => t.id !== id) || [],
+          total: Math.max(0, (old.total || 1) - 1),
+        };
+      });
+
+      if (prevStats && deletedAmount > 0) {
+        const change = deletedType === 'INCOME' ? -deletedAmount : deletedAmount;
+        qc.setQueryData(['stats'], {
+          ...prevStats,
+          liquidity: prevStats.liquidity + change,
+          netWorth: prevStats.netWorth + change,
+        });
+      }
+
+      return { previousQueries, prevStats };
+    },
+    onError: (err, id, context: any) => {
+      if (context?.previousQueries) {
+        context.previousQueries.forEach(([queryKey, value]: any) => {
+          qc.setQueryData(queryKey, value);
+        });
+      }
+      if (context?.prevStats) {
+        qc.setQueryData(['stats'], context.prevStats);
+      }
+    },
+    onSettled: () => {
       qc.invalidateQueries({ queryKey: ['transactions'] });
       qc.invalidateQueries({ queryKey: ['stats'] });
     },

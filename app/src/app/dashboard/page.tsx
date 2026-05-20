@@ -9,6 +9,7 @@ import DashPage    from '@/components/pages/DashPage';
 import FeedPage    from '@/components/pages/FeedPage';
 import BucketsPage from '@/components/pages/BucketsPage';
 import IntelPage   from '@/components/pages/IntelPage';
+import { AnimatePresence, motion } from 'framer-motion';
 
 export default function Home() {
   const currentPage = useAppStore((s) => s.currentPage);
@@ -23,10 +24,20 @@ export default function Home() {
     <>
       <Header />
 
-      {currentPage === 'dash'    && <DashPage    />}
-      {currentPage === 'feed'    && <FeedPage    />}
-      {currentPage === 'buckets' && <BucketsPage />}
-      {currentPage === 'intel'   && <IntelPage   />}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={currentPage}
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -15 }}
+          transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
+        >
+          {currentPage === 'dash'    && <DashPage    />}
+          {currentPage === 'feed'    && <FeedPage    />}
+          {currentPage === 'buckets' && <BucketsPage />}
+          {currentPage === 'intel'   && <IntelPage   />}
+        </motion.div>
+      </AnimatePresence>
 
       <BottomNav />
       <Toast />

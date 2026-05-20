@@ -93,6 +93,50 @@
   box-shadow: 0 0 0 3px rgba(202, 253, 0, 0.3);
 }
 
+/* Stripe animation for progress bars */
+@keyframes stripe-move {
+  0% { background-position: 0 0; }
+  100% { background-position: 1rem 0; }
+}
+
+.animate-stripes {
+  background-image: linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.2) 25%,
+    transparent 25%,
+    transparent 50%,
+    rgba(255, 255, 255, 0.2) 50%,
+    rgba(255, 255, 255, 0.2) 75%,
+    transparent 75%,
+    transparent
+  );
+  background-size: 1rem 1rem;
+  animation: stripe-move 1s linear infinite;
+}
+
+/* Pulsing text/badge for syncing states */
+.pulse-sync {
+  animation: pulse-op 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-op {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+/* Retro DOS style scrollbar */
+.terminal-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+.terminal-scrollbar::-webkit-scrollbar-track {
+  background: #000;
+  border-left: 2px solid #fff;
+}
+.terminal-scrollbar::-webkit-scrollbar-thumb {
+  background: #fff;
+  border: 1px solid #000;
+}
+
 /* ── Dark Mode ── */
 html.dark { color-scheme: dark; }
 

@@ -5,6 +5,20 @@ import { useAppStore } from '@/store/app';
 import { useTransactions, useDeleteTransaction } from '@/hooks/useStash';
 import { formatMoney } from '@/lib/currencies';
 import { CATEGORY_META } from '@/lib/constants';
+import { motion } from 'framer-motion';
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: { staggerChildren: 0.05 }
+  }
+} as const;
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 15 },
+  show: { opacity: 1, y: 0, transition: { type: 'spring' as const, stiffness: 300, damping: 24 } }
+} as const;
 
 const CARD_THEMES = ['bg-primary-container', 'bg-white', 'bg-secondary-container', 'bg-tertiary-container'];
 const TAG_COLORS = ['bg-primary-container', 'bg-secondary-container', 'bg-tertiary-container', 'bg-surface-container-high'];
@@ -26,21 +40,26 @@ export default function FeedPage() {
   const transactions = data?.items ?? [];
 
   return (
-    <main className="max-w-3xl mx-auto px-4 pt-8 pb-8">
+    <motion.main
+      variants={containerVariants}
+      initial="hidden"
+      animate="show"
+      className="max-w-3xl mx-auto px-4 pt-8 pb-8"
+    >
       {/* Header */}
-      <div className="mb-8 flex justify-between items-end gap-4 flex-wrap">
+      <motion.div variants={itemVariants} className="mb-8 flex justify-between items-end gap-4 flex-wrap">
         <div>
           <h1 className="font-headline font-black text-6xl tracking-tighter uppercase leading-none">SMART FEED</h1>
           <p className="font-bold text-on-surface-variant uppercase tracking-[0.18em] text-xs mt-2">Transactions, interpreted.</p>
         </div>
         <div className="bg-secondary-container border-2 border-inverse-surface px-4 py-2 hard-shadow-sm font-headline font-bold text-sm italic">AI PATTERN WATCH</div>
-      </div>
+      </motion.div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-2 mb-6">
+      <motion.div variants={itemVariants} className="flex flex-wrap gap-2 mb-6">
         <button
           onClick={() => { setActiveCategory(''); setActiveType(''); }}
-          className={`border-2 border-inverse-surface px-3 py-1 font-headline font-black text-xs uppercase transition-colors ${!activeCategory && !activeType ? 'bg-primary-container' : 'bg-white hover:bg-surface-container'}`}
+          className={`border-2 border-inverse-surface px-3 py-1 font-headline font-black text-xs uppercase transition-colors cursor-pointer ${!activeCategory && !activeType ? 'bg-primary-container' : 'bg-white hover:bg-surface-container'}`}
         >
           All
         </button>
@@ -48,12 +67,12 @@ export default function FeedPage() {
           <button
             key={cat}
             onClick={() => setActiveCategory(activeCategory === cat ? '' : cat)}
-            className={`border-2 border-inverse-surface px-3 py-1 font-headline font-black text-xs uppercase transition-colors ${activeCategory === cat ? 'bg-primary-container' : 'bg-white hover:bg-surface-container'}`}
+            className={`border-2 border-inverse-surface px-3 py-1 font-headline font-black text-xs uppercase transition-colors cursor-pointer ${activeCategory === cat ? 'bg-primary-container' : 'bg-white hover:bg-surface-container'}`}
           >
             {CATEGORY_META[cat]?.emoji} {cat}
           </button>
         ))}
-      </div>
+      </motion.div>
 
       {/* Loading */}
       {isLoading && (
@@ -66,12 +85,12 @@ export default function FeedPage() {
 
       {/* Feed */}
       {!isLoading && (
-        <div className="space-y-6">
+        <motion.div className="space-y-6" variants={containerVariants}>
           {transactions.length === 0 && (
-            <div className="bg-white border-4 border-inverse-surface p-10 text-center">
+            <motion.div variants={itemVariants} className="bg-white border-4 border-inverse-surface p-10 text-center">
               <p className="font-headline font-black text-2xl">Nothing here yet.</p>
               <p className="text-on-surface-variant font-bold mt-2">Log a transaction from the dashboard.</p>
-            </div>
+            </motion.div>
           )}
 
           {transactions.map((tx, i) => {
@@ -79,16 +98,30 @@ export default function FeedPage() {
             const isInc   = tx.type === 'INCOME';
             const cardBg  = CARD_THEMES[i % CARD_THEMES.length];
             const tags    = (tx.tags as string[]) ?? [];
+            const isOptimistic = (tx as any).isOptimistic;
 
             return (
-              <article key={tx.id} className={`interactive-lift ${cardBg} border-4 border-inverse-surface p-6 hard-shadow`}>
+              <motion.article
+                key={tx.id}
+                variants={itemVariants}
+                className={`interactive-lift ${cardBg} border-4 border-inverse-surface p-6 hard-shadow ${
+                  isOptimistic ? 'pulse-sync opacity-60 border-dashed bg-surface-container' : ''
+                }`}
+              >
                 <div className="flex justify-between items-start gap-4 flex-wrap">
                   <div className="flex items-center gap-4">
                     <div className="w-14 h-14 bg-white border-2 border-inverse-surface flex items-center justify-center text-3xl hard-shadow-sm">
                       {meta.emoji}
                     </div>
                     <div>
-                      <h3 className="font-headline font-extrabold text-2xl uppercase tracking-tight">{tx.merchant}</h3>
+                      <h3 className="font-headline font-extrabold text-2xl uppercase tracking-tight flex items-center gap-2">
+                        {tx.merchant}
+                        {isOptimistic && (
+                          <span className="text-[9px] font-black tracking-wider text-white bg-black dark:text-black dark:bg-white px-2 py-0.5 uppercase pulse-sync">
+                            Syncing...
+                          </span>
+                        )}
+                      </h3>
                       <p className="text-on-surface-variant font-medium text-sm">
                         {new Date(tx.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })} • {meta.label}
                       </p>
@@ -131,27 +164,30 @@ export default function FeedPage() {
 
                 <div className="mt-4 flex justify-end">
                   <button
+                    disabled={isOptimistic}
                     onClick={() => {
                       deleteTx.mutate(tx.id, { onSuccess: () => showToast('Transaction deleted.') });
                     }}
-                    className="text-xs font-bold text-on-surface-variant hover:text-error transition-colors uppercase"
+                    className={`text-xs font-bold uppercase transition-colors ${
+                      isOptimistic ? 'text-gray-400 cursor-not-allowed' : 'text-on-surface-variant hover:text-error cursor-pointer'
+                    }`}
                   >
-                    Delete
+                    {isOptimistic ? 'Syncing...' : 'Delete'}
                   </button>
                 </div>
-              </article>
+              </motion.article>
             );
           })}
-        </div>
+        </motion.div>
       )}
 
       {/* FAB */}
       <button
         onClick={() => { refetch(); showToast('Feed refreshed.'); }}
-        className="fixed bottom-24 right-6 w-16 h-16 bg-primary border-4 border-inverse-surface text-primary-container flex items-center justify-center hard-shadow hover:-translate-x-0.5 hover:-translate-y-0.5 active-press transition-all z-40"
+        className="fixed bottom-24 right-6 w-16 h-16 bg-primary border-4 border-inverse-surface text-primary-container flex items-center justify-center hard-shadow hover:-translate-x-0.5 hover:-translate-y-0.5 active-press transition-all z-40 cursor-pointer"
       >
         <span className="material-symbols-outlined text-3xl">auto_awesome</span>
       </button>
-    </main>
+    </motion.main>
   );
 }

@@ -7,6 +7,24 @@ import { useBuckets } from '@/hooks/useStash';
 import { formatMoney, formatCompactMoney, displayToUsd } from '@/lib/currencies';
 import { CATEGORY_META } from '@/lib/constants';
 import ActionModal from '@/components/ui/ActionModal';
+import { motion } from 'framer-motion';
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: { staggerChildren: 0.08 }
+  }
+} as const;
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { type: "spring" as const, stiffness: 260, damping: 22 }
+  }
+} as const;
 
 type ModalConfig = React.ComponentProps<typeof ActionModal>['config'];
 
@@ -122,10 +140,14 @@ export default function DashPage() {
 
   return (
     <>
-      <main className="p-6 space-y-8 max-w-5xl mx-auto">
-
+      <motion.main
+        variants={containerVariants}
+        initial="hidden"
+        animate="show"
+        className="p-6 space-y-8 max-w-5xl mx-auto"
+      >
         {/* Hero */}
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <motion.section variants={itemVariants} className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="md:col-span-2 bg-primary-container p-8 border-4 border-inverse-surface hard-shadow-lg flex flex-col justify-between min-h-[300px]">
             <div>
               <h2 className="font-headline text-5xl font-black tracking-tighter leading-none mb-2">DASH</h2>
@@ -138,7 +160,7 @@ export default function DashPage() {
                   {statsLoading ? '…' : formatMoney(liquidity, currency)}
                 </span>
               </div>
-              <div className={`bg-secondary p-4 border-4 border-inverse-surface rotate-3 hard-shadow`}>
+              <div className="bg-secondary p-4 border-4 border-inverse-surface rotate-3 hard-shadow">
                 <span className="text-on-secondary font-headline text-4xl font-black">STABLE</span>
               </div>
             </div>
@@ -152,26 +174,26 @@ export default function DashPage() {
               <div className="bg-primary h-full border-r-2 border-inverse-surface transition-all duration-700" style={{ width: `${healthScore}%` }} />
             </div>
           </div>
-        </section>
+        </motion.section>
 
         {/* Action Bar */}
-        <section className="flex flex-wrap gap-4">
+        <motion.section variants={itemVariants} className="flex flex-wrap gap-4">
           <button
             onClick={openQuickSpend}
-            className="bg-secondary-container text-on-secondary-container font-headline font-black text-xl px-10 py-6 border-4 border-inverse-surface hard-shadow hover:-translate-x-1 hover:-translate-y-1 hover:hard-shadow-lg active-press transition-all flex items-center gap-3"
+            className="bg-secondary-container text-on-secondary-container font-headline font-black text-xl px-10 py-6 border-4 border-inverse-surface hard-shadow hover:-translate-x-1 hover:-translate-y-1 hover:hard-shadow-lg active-press transition-all flex items-center gap-3 cursor-pointer"
           >
             <span className="material-symbols-outlined text-4xl">bolt</span> QUICK SPEND
           </button>
           <button
             onClick={openLoadUp}
-            className="bg-white text-inverse-surface font-headline font-black text-xl px-8 py-6 border-4 border-inverse-surface hard-shadow hover:-translate-x-1 hover:-translate-y-1 hover:hard-shadow-lg transition-all flex items-center gap-3"
+            className="bg-white text-inverse-surface font-headline font-black text-xl px-8 py-6 border-4 border-inverse-surface hard-shadow hover:-translate-x-1 hover:-translate-y-1 hover:hard-shadow-lg transition-all flex items-center gap-3 cursor-pointer"
           >
             <span className="material-symbols-outlined text-4xl">add_card</span> LOAD UP
           </button>
-        </section>
+        </motion.section>
 
         {/* Bento Grid */}
-        <section className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <motion.section variants={itemVariants} className="grid grid-cols-1 md:grid-cols-4 gap-6">
           {/* Heat Map */}
           <div className="md:col-span-3 bg-white border-4 border-inverse-surface hard-shadow-lg p-6">
             <div className="flex justify-between items-center mb-6">
@@ -218,15 +240,15 @@ export default function DashPage() {
             </div>
             <button
               onClick={() => navigate('buckets')}
-              className="mt-8 w-full border-2 border-white py-2 font-headline font-bold text-sm hover:bg-white hover:text-black transition-colors active-press"
+              className="mt-8 w-full border-2 border-white py-2 font-headline font-bold text-sm hover:bg-white hover:text-black transition-colors active-press cursor-pointer"
             >
               VIEW ALL BUCKETS
             </button>
           </div>
-        </section>
+        </motion.section>
 
         {/* Recent Receipts */}
-        <section className="space-y-4">
+        <motion.section variants={itemVariants} className="space-y-4">
           <h3 className="font-headline text-3xl font-black uppercase underline decoration-primary decoration-8">Receipts</h3>
           <div className="space-y-3">
             {recentTx.length === 0 && (
@@ -238,14 +260,28 @@ export default function DashPage() {
               const meta = CATEGORY_META[tx.category] ?? CATEGORY_META.OTHER;
               const isIncome = tx.type === 'INCOME';
               const iconTheme = RECEIPT_ICON_COLORS[tx.category] ?? RECEIPT_ICON_COLORS.OTHER;
+              const isOptimistic = (tx as any).isOptimistic;
+
               return (
-                <div key={tx.id} className="bg-white border-2 border-inverse-surface hard-shadow p-4 flex items-center justify-between hover:translate-x-1 transition-transform cursor-pointer">
+                <div
+                  key={tx.id}
+                  className={`bg-white border-2 border-inverse-surface hard-shadow p-4 flex items-center justify-between hover:translate-x-1 transition-transform cursor-pointer ${
+                    isOptimistic ? 'pulse-sync opacity-60 border-dashed bg-surface-container' : ''
+                  }`}
+                >
                   <div className="flex items-center gap-4">
                     <div className={`w-12 h-12 ${iconTheme} border-2 border-inverse-surface flex items-center justify-center`}>
-                      <span className={`material-symbols-outlined`}>{meta.icon}</span>
+                      <span className="material-symbols-outlined">{meta.icon}</span>
                     </div>
                     <div>
-                      <p className="font-headline font-black text-lg">{tx.merchant}</p>
+                      <p className="font-headline font-black text-lg flex items-center gap-2">
+                        {tx.merchant}
+                        {isOptimistic && (
+                          <span className="text-[9px] font-black tracking-wider text-white bg-black dark:text-black dark:bg-white px-2 py-0.5 uppercase pulse-sync">
+                            Syncing...
+                          </span>
+                        )}
+                      </p>
                       <p className="text-xs font-bold opacity-60 uppercase">
                         {new Date(tx.createdAt).toLocaleDateString()} • {meta.label.toUpperCase()}
                       </p>
@@ -265,20 +301,20 @@ export default function DashPage() {
           </div>
           <button
             onClick={() => navigate('feed')}
-            className="w-full border-4 border-inverse-surface py-3 font-headline font-black uppercase text-sm hard-shadow hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all bg-white"
+            className="w-full border-4 border-inverse-surface py-3 font-headline font-black uppercase text-sm hard-shadow hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all bg-white cursor-pointer"
           >
             VIEW ALL RECEIPTS →
           </button>
-        </section>
+        </motion.section>
 
         {/* Promo Banner */}
-        <section className="bg-primary border-4 border-inverse-surface p-8 relative overflow-hidden">
+        <motion.section variants={itemVariants} className="bg-primary border-4 border-inverse-surface p-8 relative overflow-hidden">
           <div className="relative z-10">
             <h3 className="font-headline font-black text-4xl text-on-primary italic leading-none mb-2">UNLOCK THE VAULT</h3>
             <p className="font-bold text-on-primary max-w-md">Refer a homie and get $50 instantly. No cap. Just vibes and cash.</p>
             <button
               onClick={() => showToast('Link copied! 🔗')}
-              className="mt-6 bg-white text-black font-headline font-black px-6 py-3 border-4 border-inverse-surface hard-shadow active-press hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all"
+              className="mt-6 bg-white text-black font-headline font-black px-6 py-3 border-4 border-inverse-surface hard-shadow active-press hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all cursor-pointer"
             >
               GET THE LINK
             </button>
@@ -286,9 +322,9 @@ export default function DashPage() {
           <div className="absolute right-[-20px] bottom-[-20px] rotate-[-15deg] opacity-20">
             <span className="material-symbols-outlined text-[200px]" style={{ fontVariationSettings: "'FILL' 1" }}>database</span>
           </div>
-        </section>
+        </motion.section>
 
-      </main>
+      </motion.main>
 
       <ActionModal config={modal} onClose={() => setModal(null)} />
     </>
