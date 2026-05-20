@@ -1,0 +1,2095 @@
+
+<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>STASH</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        colors: {
+          "error": "#b02500",
+          "on-background": "#2d2f2f",
+          "on-tertiary-fixed": "#1d0054",
+          "primary-dim": "#435600",
+          "surface-bright": "#f6f6f6",
+          "surface-container-lowest": "#ffffff",
+          "error-dim": "#b92902",
+          "inverse-primary": "#cafd00",
+          "on-tertiary-container": "#3a0093",
+          "inverse-on-surface": "#9c9d9d",
+          "outline-variant": "#acadad",
+          "inverse-surface": "#0c0f0f",
+          "surface-tint": "#4e6300",
+          "secondary-fixed": "#ffbdf3",
+          "tertiary-dim": "#5d00e3",
+          "tertiary-fixed": "#bba2ff",
+          "on-primary-fixed": "#3a4a00",
+          "surface-container-high": "#e1e3e3",
+          "error-container": "#f95630",
+          "surface-container": "#e7e8e8",
+          "on-tertiary-fixed-variant": "#4400aa",
+          "on-secondary-container": "#820082",
+          "surface": "#f6f6f6",
+          "primary-container": "#cafd00",
+          "on-primary-container": "#4a5e00",
+          "on-primary-fixed-variant": "#526900",
+          "tertiary-fixed-dim": "#ae91ff",
+          "on-surface": "#2d2f2f",
+          "on-secondary": "#ffeef8",
+          "tertiary": "#6a1cf6",
+          "secondary-dim": "#900090",
+          "surface-container-highest": "#dbdddd",
+          "secondary-container": "#ffbdf3",
+          "surface-dim": "#d2d5d5",
+          "on-error": "#ffefec",
+          "on-secondary-fixed": "#620061",
+          "surface-variant": "#dbdddd",
+          "outline": "#757777",
+          "secondary": "#a400a4",
+          "primary-fixed-dim": "#beee00",
+          "on-tertiary": "#f7f0ff",
+          "secondary-fixed-dim": "#ffa6f3",
+          "on-primary": "#e1ff88",
+          "on-error-container": "#520c00",
+          "background": "#f6f6f6",
+          "on-secondary-fixed-variant": "#920091",
+          "on-surface-variant": "#5a5c5c",
+          "tertiary-container": "#bba2ff",
+          "primary-fixed": "#cafd00",
+          "surface-container-low": "#f0f1f1",
+          "primary": "#4e6300"
+        },
+        fontFamily: {
+          "headline": ["Space Grotesk"],
+          "body": ["Plus Jakarta Sans"],
+          "label": ["Space Grotesk"]
+        },
+        borderRadius: { "DEFAULT": "0px", "lg": "0px", "xl": "0px", "full": "9999px" }
+      }
+    }
+  }
+</script>
+<style>
+  .material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 700, 'GRAD' 0, 'opsz' 48;
+  }
+  body { font-family: 'Plus Jakarta Sans', sans-serif; }
+  .hard-shadow   { box-shadow: 4px 4px 0px 0px #0c0f0f; }
+  .hard-shadow-lg { box-shadow: 8px 8px 0px 0px #0c0f0f; }
+  .hard-shadow-sm { box-shadow: 2px 2px 0px 0px #0c0f0f; }
+  .active-press:active { transform: translate(4px, 4px); box-shadow: none; }
+
+  /* ── Page switching ── */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ── Notification badge ── */
+  .notif-badge { position: relative; }
+  .notif-badge::after {
+    content: '3'; position: absolute; top: -4px; right: -4px;
+    background: #b02500; color: #fff; font-size: 10px; font-weight: 900;
+    width: 16px; height: 16px; display: flex; align-items: center;
+    justify-content: center; border-radius: 50%;
+  }
+
+  /* ── Settings panel ── */
+  #settings-panel { transition: transform .3s ease; }
+
+  /* ── Toast ── */
+  #toast { transition: opacity .3s ease; }
+
+  /* ── Action modal ── */
+  #action-modal-overlay,
+  #action-modal { transition: opacity .22s ease, transform .22s ease; }
+  #action-modal-overlay {
+    opacity: 0;
+    pointer-events: none;
+  }
+  #action-modal {
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(-50%, -46%);
+  }
+  #action-modal.open {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translate(-50%, -50%);
+  }
+  #action-modal-overlay.open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* ── Dark mode ── */
+  html.dark {
+    color-scheme: dark;
+  }
+  html.dark body {
+    background: #0b0f11 !important;
+    color: #f2f5f7 !important;
+  }
+  html.dark header,
+  html.dark nav,
+  html.dark #notif-drawer,
+  html.dark #settings-panel,
+  html.dark #action-modal {
+    background: #11171a !important;
+    border-color: #4d5961 !important;
+  }
+  html.dark header {
+    box-shadow: 4px 4px 0px 0px #000 !important;
+  }
+  html.dark #settings-overlay {
+    background: rgba(0, 0, 0, 0.55) !important;
+  }
+  html.dark #action-modal-overlay {
+    background: rgba(0, 0, 0, 0.68) !important;
+  }
+  html.dark .bg-background,
+  html.dark .bg-\[\#f6f6f6\] {
+    background-color: #0f1418 !important;
+  }
+  html.dark .bg-white,
+  html.dark .bg-white\/80,
+  html.dark .bg-surface-container-lowest {
+    background-color: #161d22 !important;
+    color: #f5f7f8 !important;
+  }
+  html.dark .bg-surface-container,
+  html.dark .bg-surface-container-low,
+  html.dark .bg-surface-container-high,
+  html.dark .bg-surface-container-highest,
+  html.dark .bg-surface-variant {
+    background-color: #1d252b !important;
+  }
+  html.dark .bg-primary-container {
+    background-color: #213422 !important;
+    color: #efffba !important;
+  }
+  html.dark .bg-secondary-container {
+    background-color: #34243b !important;
+    color: #ffe4fb !important;
+  }
+  html.dark .bg-tertiary-container {
+    background-color: #203246 !important;
+    color: #e2f1ff !important;
+  }
+  html.dark .bg-primary {
+    background-color: #93cb47 !important;
+    color: #102000 !important;
+  }
+  html.dark .bg-secondary {
+    background-color: #cf70dd !important;
+    color: #24082c !important;
+  }
+  html.dark .bg-tertiary {
+    background-color: #71aee7 !important;
+    color: #081827 !important;
+  }
+  html.dark .bg-inverse-surface {
+    background-color: #0b1014 !important;
+    color: #f2f5f7 !important;
+  }
+  html.dark .bg-error-container {
+    background-color: #5a221c !important;
+    color: #ffe4df !important;
+  }
+  html.dark .bg-error {
+    background-color: #d95a4d !important;
+    color: #220604 !important;
+  }
+  html.dark .text-on-background,
+  html.dark .text-on-surface,
+  html.dark .text-\[\#0c0f0f\] {
+    color: #f2f5f7 !important;
+  }
+  html.dark .text-on-surface-variant {
+    color: #c7d1d7 !important;
+  }
+  html.dark .text-on-primary,
+  html.dark .text-on-primary-container,
+  html.dark .text-on-primary-fixed,
+  html.dark .text-on-primary-fixed-variant {
+    color: #f2ffd9 !important;
+  }
+  html.dark .text-on-secondary,
+  html.dark .text-on-secondary-container,
+  html.dark .text-on-secondary-fixed,
+  html.dark .text-on-secondary-fixed-variant {
+    color: #ffe9ff !important;
+  }
+  html.dark .text-on-tertiary,
+  html.dark .text-on-tertiary-container,
+  html.dark .text-on-tertiary-fixed,
+  html.dark .text-on-tertiary-fixed-variant {
+    color: #efeeff !important;
+  }
+  html.dark .text-primary {
+    color: #c7f37d !important;
+  }
+  html.dark .text-secondary {
+    color: #ef98fb !important;
+  }
+  html.dark .text-tertiary {
+    color: #9ed2ff !important;
+  }
+  html.dark .text-primary-dim,
+  html.dark .text-secondary-dim,
+  html.dark .text-tertiary-dim {
+    color: #ced8df !important;
+  }
+  html.dark .text-error,
+  html.dark .text-on-error-container {
+    color: #ffb8b2 !important;
+  }
+  html.dark .border-\[\#0c0f0f\],
+  html.dark .border-inverse-surface {
+    border-color: #42515c !important;
+  }
+  html.dark .divide-outline-variant > :not([hidden]) ~ :not([hidden]) {
+    border-color: #34414b !important;
+  }
+  html.dark nav {
+    background: #121b22 !important;
+  }
+  html.dark .nav-btn {
+    color: #deeaef !important;
+    border-color: #42515c !important;
+  }
+  html.dark .nav-btn:hover {
+    background: #20343e !important;
+  }
+  html.dark .opacity-70 {
+    opacity: 0.9 !important;
+  }
+  html.dark .opacity-60 {
+    opacity: 0.86 !important;
+  }
+  html.dark .hard-shadow,
+  html.dark .hard-shadow-lg,
+  html.dark .hard-shadow-sm {
+    box-shadow: 4px 4px 0px 0px #000 !important;
+  }
+  html.dark #toast {
+    background: #eaf0f2 !important;
+    color: #11171a !important;
+    border: 2px solid #11171a;
+  }
+
+  .interactive-lift {
+    transition: transform .18s ease, box-shadow .18s ease, background-color .18s ease, border-color .18s ease;
+  }
+  .interactive-lift:hover {
+    transform: translate(-4px, -4px);
+  }
+  .interactive-lift:focus-visible {
+    transform: translate(-4px, -4px);
+    outline: 3px solid #a400a4;
+    outline-offset: 3px;
+  }
+  .interactive-soft {
+    transition: transform .18s ease, opacity .18s ease, background-color .18s ease;
+  }
+  .interactive-soft:hover {
+    transform: translateY(-2px);
+  }
+  .bucket-filter-btn.active {
+    background: #cafd00;
+    color: #2d2f2f;
+  }
+  html.dark .bucket-filter-btn.active {
+    background: #c7f37d;
+    color: #102000;
+  }
+  .intel-bar-active {
+    transform: translateY(-8px);
+  }
+  .hover-glow:hover {
+    box-shadow: 0 0 0 3px rgba(202, 253, 0, 0.3);
+  }
+  html.dark .hover-glow:hover {
+    box-shadow: 0 0 0 3px rgba(199, 243, 125, 0.28);
+  }
+</style>
+</head>
+<body class="bg-background text-on-background min-h-screen pb-24 overflow-x-hidden">
+
+<!-- ─── TOP APP BAR ─── -->
+<header class="bg-[#f6f6f6] border-b-4 border-[#0c0f0f] shadow-[4px_4px_0px_0px_rgba(12,15,15,1)] flex justify-between items-center w-full px-6 py-4 sticky top-0 z-50">
+  <div class="text-3xl font-black italic text-[#0c0f0f] underline decoration-[#cafd00] decoration-4 font-headline uppercase tracking-tighter select-none cursor-pointer" onclick="navigate('dash')">
+    STASH
+  </div>
+  <div class="flex gap-3">
+    <button id="notif-btn" class="notif-badge p-2 border-2 border-[#0c0f0f] bg-white hard-shadow-sm hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all">
+      <span class="material-symbols-outlined text-[#0c0f0f] text-2xl">notifications</span>
+    </button>
+    <button id="settings-btn" class="p-2 border-2 border-[#0c0f0f] bg-white hard-shadow-sm hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all">
+      <span class="material-symbols-outlined text-[#0c0f0f] text-2xl">settings</span>
+    </button>
+  </div>
+</header>
+
+<!-- ─── NOTIFICATIONS DRAWER ─── -->
+<div id="notif-drawer" class="fixed top-[73px] right-4 z-[60] w-80 bg-white border-4 border-inverse-surface hard-shadow-lg hidden">
+  <div class="flex justify-between items-center px-4 py-3 border-b-2 border-inverse-surface">
+    <span class="font-headline font-black uppercase text-sm">Notifications</span>
+    <button id="notif-close" class="font-bold text-xs text-on-surface-variant uppercase hover:text-red-600 transition-colors">Clear All</button>
+  </div>
+  <div class="divide-y-2 divide-outline-variant">
+    <div class="px-4 py-3 flex gap-3 items-start bg-primary-container cursor-pointer hover:opacity-80" onclick="navigate('buckets'); document.getElementById('notif-drawer').classList.add('hidden')">
+      <span class="material-symbols-outlined text-primary text-xl mt-0.5">bolt</span>
+      <div><p class="font-bold text-sm">Festival Fund is at 92%!</p><p class="text-xs text-on-surface-variant">You're almost there 🎪</p></div>
+    </div>
+    <div class="px-4 py-3 flex gap-3 items-start cursor-pointer hover:bg-surface-container">
+      <span class="material-symbols-outlined text-error text-xl mt-0.5">warning</span>
+      <div><p class="font-bold text-sm">Drip budget exceeded</p><p class="text-xs text-on-surface-variant">12% over budget this month</p></div>
+    </div>
+    <div class="px-4 py-3 flex gap-3 items-start cursor-pointer hover:bg-surface-container" onclick="navigate('dash'); document.getElementById('notif-drawer').classList.add('hidden')">
+      <span class="material-symbols-outlined text-tertiary text-xl mt-0.5">payments</span>
+      <div><p class="font-bold text-sm">Payday coming up!</p><p class="text-xs text-on-surface-variant">Deposit scheduled in 3 days</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── SETTINGS PANEL ─── -->
+<div id="settings-panel" class="fixed top-0 right-0 h-full w-72 bg-white border-l-4 border-inverse-surface hard-shadow-lg z-[70] translate-x-full flex flex-col">
+  <div class="flex justify-between items-center px-5 py-4 border-b-4 border-inverse-surface bg-secondary-container">
+    <span class="font-headline font-black uppercase tracking-tighter text-xl">Settings</span>
+    <button id="settings-close" class="material-symbols-outlined text-2xl hover:rotate-90 transition-transform">close</button>
+  </div>
+  <div class="flex-1 overflow-y-auto p-5 space-y-6">
+    <div>
+      <p class="font-headline font-black text-xs uppercase tracking-widest text-on-surface-variant mb-3">Account</p>
+      <div class="flex items-center gap-3 p-3 border-2 border-inverse-surface hard-shadow-sm">
+        <div class="w-10 h-10 bg-primary-container border-2 border-inverse-surface flex items-center justify-center font-headline font-black text-sm">SF</div>
+        <div><p class="font-bold text-sm">Stash User</p><p class="text-xs text-on-surface-variant">hello@stash.app</p></div>
+      </div>
+    </div>
+    <div>
+      <p class="font-headline font-black text-xs uppercase tracking-widest text-on-surface-variant mb-3">Preferences</p>
+      <div class="space-y-3">
+        <label class="flex justify-between items-center p-3 border-2 border-inverse-surface cursor-pointer hover:bg-surface-container">
+          <span class="font-bold text-sm">Dark Mode</span>
+          <input type="checkbox" id="dark-toggle" class="w-4 h-4 accent-[#4e6300]"/>
+        </label>
+        <label class="flex justify-between items-center p-3 border-2 border-inverse-surface cursor-pointer hover:bg-surface-container">
+          <span class="font-bold text-sm">Push Notifications</span>
+          <input type="checkbox" checked class="w-4 h-4 accent-[#4e6300]"/>
+        </label>
+        <label class="flex justify-between items-center p-3 border-2 border-inverse-surface cursor-pointer hover:bg-surface-container">
+          <span class="font-bold text-sm">Budget Alerts</span>
+          <input type="checkbox" checked class="w-4 h-4 accent-[#4e6300]"/>
+        </label>
+      </div>
+    </div>
+    <div>
+      <p class="font-headline font-black text-xs uppercase tracking-widest text-on-surface-variant mb-3">Currency</p>
+      <select id="currency-select" class="w-full border-2 border-inverse-surface p-2 font-bold text-sm bg-white hard-shadow-sm">
+        <option value="USD">USD – US Dollar</option>
+        <option value="EUR">EUR – Euro</option>
+        <option value="INR">INR – Indian Rupee</option>
+        <option value="GBP">GBP – British Pound</option>
+      </select>
+    </div>
+  </div>
+  <div class="p-5 border-t-2 border-inverse-surface">
+    <button onclick="showToast('Logged out! 👋')" class="w-full bg-error text-white py-3 font-headline font-black uppercase text-sm hard-shadow active-press hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all">LOG OUT</button>
+  </div>
+</div>
+<div id="settings-overlay" class="fixed inset-0 bg-black/30 z-[65] hidden"></div>
+
+<!-- ─── ACTION MODAL ─── -->
+<div id="action-modal-overlay" class="fixed inset-0 bg-black/50 z-[80]"></div>
+<div id="action-modal" class="fixed top-1/2 left-1/2 w-[calc(100%-2rem)] max-w-md border-4 border-inverse-surface bg-white hard-shadow-lg z-[85]">
+  <div class="flex items-start justify-between gap-3 px-5 py-4 border-b-4 border-inverse-surface bg-secondary-container">
+    <div>
+      <h3 id="action-modal-title" class="font-headline font-black text-2xl uppercase leading-none">Action</h3>
+      <p id="action-modal-subtitle" class="font-bold text-xs uppercase tracking-wider text-on-surface-variant mt-2"></p>
+    </div>
+    <button id="action-modal-close" type="button" class="material-symbols-outlined text-2xl hover:rotate-90 transition-transform">close</button>
+  </div>
+  <form id="action-modal-form" class="p-5 space-y-4"></form>
+  <div class="px-5 pb-5 pt-1 grid grid-cols-2 gap-3">
+    <button id="action-modal-cancel" type="button" class="border-2 border-inverse-surface py-3 font-headline font-black uppercase text-xs hover:bg-surface-container transition-colors active-press">
+      Cancel
+    </button>
+    <button id="action-modal-submit" type="submit" form="action-modal-form" class="bg-primary-container border-2 border-inverse-surface py-3 font-headline font-black uppercase text-xs hard-shadow-sm hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all active-press">
+      Confirm
+    </button>
+  </div>
+</div>
+
+<!-- ─── TOAST ─── -->
+<div id="toast" class="fixed top-[80px] left-1/2 -translate-x-1/2 z-[999] bg-inverse-surface text-white px-5 py-2 font-headline font-bold text-sm uppercase hard-shadow opacity-0 pointer-events-none whitespace-nowrap"></div>
+
+
+<!-- ══════════════════════════════
+     PAGE: DASH
+══════════════════════════════ -->
+<div id="page-dash" class="page">
+  <main class="p-6 space-y-8 max-w-5xl mx-auto">
+
+    <!-- Hero -->
+    <section class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div class="md:col-span-2 bg-primary-container p-8 border-4 border-inverse-surface hard-shadow-lg flex flex-col justify-between min-h-[300px]">
+        <div>
+          <h2 class="font-headline text-5xl font-black tracking-tighter leading-none mb-2">DASH</h2>
+          <p class="font-headline font-bold text-xl uppercase opacity-80">STASHING HARD OR HARDLY STASHING?</p>
+        </div>
+        <div class="flex items-end justify-between mt-8 flex-wrap gap-4">
+          <div class="flex flex-col">
+            <span class="text-xs font-bold uppercase tracking-widest opacity-70">Total Liquidity</span>
+            <span id="total-liquidity-value" class="text-6xl font-headline font-black">$42,069.00</span>
+          </div>
+          <div class="bg-secondary p-4 border-4 border-inverse-surface rotate-3 hard-shadow">
+            <span class="text-on-secondary font-headline text-4xl font-black">STABLE</span>
+          </div>
+        </div>
+      </div>
+      <div class="bg-tertiary-container p-8 border-4 border-inverse-surface hard-shadow-lg flex flex-col items-center justify-center text-center relative overflow-hidden">
+        <span class="absolute top-4 left-4 font-headline font-bold text-xs uppercase tracking-tighter">Current Vibes</span>
+        <div class="text-[120px] font-headline font-black leading-none text-tertiary drop-shadow-[4px_4px_0px_#0c0f0f]">A+</div>
+        <p class="font-bold text-sm uppercase mt-4">You're killing it, chief.</p>
+        <div class="w-full h-4 border-2 border-inverse-surface mt-6 bg-white overflow-hidden">
+          <div class="bg-primary h-full border-r-2 border-inverse-surface" style="width:92%"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Action Bar -->
+    <section class="flex flex-wrap gap-4">
+      <button onclick="quickSpend()" class="bg-secondary-container text-on-secondary-container font-headline font-black text-xl px-10 py-6 border-4 border-inverse-surface hard-shadow hover:-translate-x-1 hover:-translate-y-1 hover:hard-shadow-lg active-press transition-all flex items-center gap-3">
+        <span class="material-symbols-outlined text-4xl">bolt</span> QUICK SPEND
+      </button>
+      <button onclick="loadUpBalance()" class="bg-white text-inverse-surface font-headline font-black text-xl px-8 py-6 border-4 border-inverse-surface hard-shadow hover:-translate-x-1 hover:-translate-y-1 hover:hard-shadow-lg transition-all flex items-center gap-3">
+        <span class="material-symbols-outlined text-4xl">add_card</span> LOAD UP
+      </button>
+    </section>
+
+    <!-- Bento Grid -->
+    <section class="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div class="md:col-span-3 bg-white border-4 border-inverse-surface hard-shadow-lg p-6">
+        <div class="flex justify-between items-center mb-6">
+          <h3 class="font-headline text-2xl font-black uppercase italic underline decoration-secondary decoration-4">Heat Map</h3>
+          <span class="text-xs font-bold px-3 py-1 bg-inverse-surface text-white">LAST 7 DAYS</span>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div class="bg-secondary-container border-2 border-inverse-surface p-4 hard-shadow-sm hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all cursor-pointer">
+            <div class="text-3xl mb-2">🍔</div><div class="font-headline font-black text-lg">MUNCHIES</div><div class="text-sm font-bold opacity-70">$240.50</div>
+          </div>
+          <div class="bg-primary-container border-2 border-inverse-surface p-4 hard-shadow-sm hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all cursor-pointer">
+            <div class="text-3xl mb-2">👟</div><div class="font-headline font-black text-lg">DRIP</div><div class="text-sm font-bold opacity-70">$512.00</div>
+          </div>
+          <div class="bg-tertiary-container border-2 border-inverse-surface p-4 hard-shadow-sm hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all cursor-pointer">
+            <div class="text-3xl mb-2">🎮</div><div class="font-headline font-black text-lg">AFK</div><div class="text-sm font-bold opacity-70">$89.99</div>
+          </div>
+          <div class="bg-surface-container border-2 border-inverse-surface p-4 hard-shadow-sm hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all cursor-pointer">
+            <div class="text-3xl mb-2">🚌</div><div class="font-headline font-black text-lg">ROAM</div><div class="text-sm font-bold opacity-70">$120.00</div>
+          </div>
+        </div>
+      </div>
+      <div class="md:col-span-1 bg-inverse-surface text-white p-6 border-4 border-inverse-surface hard-shadow-lg flex flex-col justify-between">
+        <div>
+          <h3 class="font-headline font-black text-xl mb-4">SAVINGS CLOUT</h3>
+          <div class="space-y-4">
+            <div>
+              <div class="flex justify-between text-xs font-bold uppercase mb-1"><span>Festival Fund</span><span>92%</span></div>
+              <div class="w-full h-2 bg-on-surface-variant"><div class="bg-primary-container h-full" style="width:92%"></div></div>
+            </div>
+            <div>
+              <div class="flex justify-between text-xs font-bold uppercase mb-1"><span>Tokyo Trip</span><span>75%</span></div>
+              <div class="w-full h-2 bg-on-surface-variant"><div class="bg-secondary-container h-full" style="width:75%"></div></div>
+            </div>
+            <div>
+              <div class="flex justify-between text-xs font-bold uppercase mb-1"><span>New Rig</span><span>15%</span></div>
+              <div class="w-full h-2 bg-on-surface-variant"><div class="bg-tertiary-container h-full" style="width:15%"></div></div>
+            </div>
+          </div>
+        </div>
+        <button onclick="navigate('buckets')" class="mt-8 w-full border-2 border-white py-2 font-headline font-bold text-sm hover:bg-white hover:text-black transition-colors active-press">VIEW ALL BUCKETS</button>
+      </div>
+    </section>
+
+    <!-- Receipts -->
+    <section class="space-y-4">
+      <h3 class="font-headline text-3xl font-black uppercase underline decoration-primary decoration-8">Receipts</h3>
+      <div class="space-y-3">
+        <div class="bg-white border-2 border-inverse-surface hard-shadow p-4 flex items-center justify-between hover:translate-x-1 transition-transform cursor-pointer">
+          <div class="flex items-center gap-4">
+            <div class="w-12 h-12 bg-secondary border-2 border-inverse-surface flex items-center justify-center"><span class="material-symbols-outlined text-white">shopping_bag</span></div>
+            <div><p class="font-headline font-black text-lg">BALENCIAGA-RETAIL</p><p class="text-xs font-bold opacity-60 uppercase">2 HOURS AGO • DRIP</p></div>
+          </div>
+          <div class="text-right"><p class="font-headline font-black text-xl text-error">-$1,240.00</p><p class="text-[10px] font-black bg-error-container text-on-error-container px-2 inline-block">BIG L</p></div>
+        </div>
+        <div class="bg-white border-2 border-inverse-surface hard-shadow p-4 flex items-center justify-between hover:translate-x-1 transition-transform cursor-pointer">
+          <div class="flex items-center gap-4">
+            <div class="w-12 h-12 bg-primary border-2 border-inverse-surface flex items-center justify-center"><span class="material-symbols-outlined text-on-primary">payments</span></div>
+            <div><p class="font-headline font-black text-lg">PAYDAY DEPOSIT</p><p class="text-xs font-bold opacity-60 uppercase">5 HOURS AGO • INCOME</p></div>
+          </div>
+          <div class="text-right"><p class="font-headline font-black text-xl text-primary-dim">+$3,500.00</p><p class="text-[10px] font-black bg-primary-container text-on-primary-container px-2 inline-block">SECURED</p></div>
+        </div>
+        <div class="bg-white border-2 border-inverse-surface hard-shadow p-4 flex items-center justify-between hover:translate-x-1 transition-transform cursor-pointer">
+          <div class="flex items-center gap-4">
+            <div class="w-12 h-12 bg-tertiary border-2 border-inverse-surface flex items-center justify-center"><span class="material-symbols-outlined text-on-tertiary">restaurant</span></div>
+            <div><p class="font-headline font-black text-lg">TACO HEAVEN</p><p class="text-xs font-bold opacity-60 uppercase">YESTERDAY • MUNCHIES</p></div>
+          </div>
+          <div class="text-right"><p class="font-headline font-black text-xl text-error">-$14.20</p><p class="text-[10px] font-black bg-surface-container text-on-surface-variant px-2 inline-block">ESSENTIAL</p></div>
+        </div>
+      </div>
+      <button onclick="navigate('feed')" class="w-full border-4 border-inverse-surface py-3 font-headline font-black uppercase text-sm hard-shadow hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all bg-white">VIEW ALL RECEIPTS →</button>
+    </section>
+
+    <!-- Promo Banner -->
+    <section class="bg-primary border-4 border-inverse-surface p-8 relative overflow-hidden">
+      <div class="relative z-10">
+        <h3 class="font-headline font-black text-4xl text-on-primary italic leading-none mb-2">UNLOCK THE VAULT</h3>
+        <p class="font-bold text-on-primary max-w-md">Refer a homie and get $50 instantly. No cap. Just vibes and cash.</p>
+        <button onclick="showToast('Link copied! 🔗')" class="mt-6 bg-white text-black font-headline font-black px-6 py-3 border-4 border-inverse-surface hard-shadow active-press hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all">GET THE LINK</button>
+      </div>
+      <div class="absolute right-[-20px] bottom-[-20px] rotate-[-15deg] opacity-20">
+        <span class="material-symbols-outlined text-[200px]" style="font-variation-settings:'FILL' 1;">database</span>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+
+<!-- ══════════════════════════════
+     PAGE: FEED
+══════════════════════════════ -->
+<div id="page-feed" class="page">
+  <main class="max-w-3xl mx-auto px-4 pt-8 pb-8">
+    <div class="mb-8 flex justify-between items-end gap-4 flex-wrap">
+      <div>
+        <h1 class="font-headline font-black text-6xl tracking-tighter uppercase leading-none">SMART FEED</h1>
+        <p class="font-bold text-on-surface-variant uppercase tracking-[0.18em] text-xs mt-2">Transactions, interpreted.</p>
+      </div>
+      <div class="bg-secondary-container border-2 border-inverse-surface px-4 py-2 hard-shadow-sm font-headline font-bold text-sm italic">AI PATTERN WATCH</div>
+    </div>
+
+    <section class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+      <div class="interactive-lift bg-primary-container border-4 border-inverse-surface p-5 hard-shadow">
+        <p class="text-[10px] font-black uppercase tracking-[0.2em] opacity-70">Biggest Drift</p>
+        <p class="font-headline font-black text-3xl mt-2">Food +30%</p>
+        <p class="text-sm font-bold mt-2">Late-night delivery is outpacing your normal weekly average.</p>
+      </div>
+      <div class="interactive-lift bg-secondary-container border-4 border-inverse-surface p-5 hard-shadow">
+        <p class="text-[10px] font-black uppercase tracking-[0.2em] opacity-70">Best Move</p>
+        <p class="font-headline font-black text-3xl mt-2">$86 Saved</p>
+        <p class="text-sm font-bold mt-2">Skipping two impulse buys created room for your buckets.</p>
+      </div>
+      <div class="interactive-lift bg-tertiary-container border-4 border-inverse-surface p-5 hard-shadow">
+        <p class="text-[10px] font-black uppercase tracking-[0.2em] opacity-70">Behavior Signal</p>
+        <p class="font-headline font-black text-3xl mt-2">Weekend Spike</p>
+        <p class="text-sm font-bold mt-2">Spending intensity jumps after 8 PM on Fridays and Saturdays.</p>
+      </div>
+    </section>
+
+    <div class="space-y-6">
+      <article class="interactive-lift bg-primary-container border-4 border-inverse-surface p-6 hard-shadow">
+        <div class="flex justify-between items-start gap-4 flex-wrap">
+          <div class="flex items-center gap-4">
+            <div class="w-14 h-14 bg-white border-2 border-inverse-surface flex items-center justify-center text-3xl hard-shadow-sm">🍔</div>
+            <div>
+              <h3 class="font-headline font-extrabold text-2xl uppercase tracking-tight">BURGER REBEL</h3>
+              <p class="text-on-surface-variant font-medium text-sm">Today, 2:45 PM • Food</p>
+            </div>
+          </div>
+          <div class="text-right">
+            <p class="font-headline font-black text-3xl text-error">-$24.50</p>
+            <p class="text-[10px] font-black uppercase tracking-[0.18em] opacity-70">Fast Casual</p>
+          </div>
+        </div>
+        <div class="mt-5 bg-white border-2 border-inverse-surface p-4">
+          <p class="font-headline font-black uppercase text-xs tracking-[0.18em] mb-2">AI Insight</p>
+          <p class="font-bold text-sm">You spent 30% more on food this week than your usual midweek pace.</p>
+        </div>
+        <div class="mt-4 flex gap-2 flex-wrap">
+          <span class="border border-inverse-surface bg-error-container text-on-error-container px-3 py-1 text-xs font-black uppercase">⚠️ Overspending</span>
+          <span class="border border-inverse-surface bg-surface-container px-3 py-1 text-xs font-black uppercase">📊 Trend spike</span>
+          <span class="border border-inverse-surface bg-tertiary-container px-3 py-1 text-xs font-black uppercase">Late-night habit</span>
+        </div>
+        <p class="mt-4 text-sm font-bold text-on-surface-variant">Pattern: food spend is clustering around convenience purchases instead of planned meals.</p>
+      </article>
+
+      <article class="interactive-lift bg-white border-4 border-inverse-surface p-6 hard-shadow">
+        <div class="flex justify-between items-start gap-4 flex-wrap">
+          <div class="flex items-center gap-4">
+            <div class="w-14 h-14 bg-primary border-2 border-inverse-surface flex items-center justify-center hard-shadow-sm">
+              <span class="material-symbols-outlined text-on-primary">payments</span>
+            </div>
+            <div>
+              <h3 class="font-headline font-extrabold text-2xl uppercase tracking-tight">PAYDAY DEPOSIT</h3>
+              <p class="text-on-surface-variant font-medium text-sm">Today, 9:00 AM • Income</p>
+            </div>
+          </div>
+          <div class="text-right">
+            <p class="font-headline font-black text-3xl text-primary-dim">+$3,500.00</p>
+            <p class="text-[10px] font-black uppercase tracking-[0.18em] opacity-70">Income Event</p>
+          </div>
+        </div>
+        <div class="mt-5 bg-primary-container border-2 border-inverse-surface p-4">
+          <p class="font-headline font-black uppercase text-xs tracking-[0.18em] mb-2">AI Insight</p>
+          <p class="font-bold text-sm">You saved more of this deposit than last payday, improving your month-start cash cushion.</p>
+        </div>
+        <div class="mt-4 flex gap-2 flex-wrap">
+          <span class="border border-inverse-surface bg-primary-container px-3 py-1 text-xs font-black uppercase">💰 Saved</span>
+          <span class="border border-inverse-surface bg-surface-container px-3 py-1 text-xs font-black uppercase">Cash flow up</span>
+          <span class="border border-inverse-surface bg-tertiary-container px-3 py-1 text-xs font-black uppercase">Bucket support</span>
+        </div>
+        <p class="mt-4 text-sm font-bold text-on-surface-variant">Pattern: when income lands early in the week, your overspend rate drops for the next 48 hours.</p>
+      </article>
+
+      <article class="interactive-lift bg-secondary-container border-4 border-inverse-surface p-6 hard-shadow">
+        <div class="flex justify-between items-start gap-4 flex-wrap">
+          <div class="flex items-center gap-4">
+            <div class="w-14 h-14 bg-white border-2 border-inverse-surface flex items-center justify-center text-3xl hard-shadow-sm">🎟️</div>
+            <div>
+              <h3 class="font-headline font-extrabold text-2xl uppercase tracking-tight">VIBE FESTIVAL</h3>
+              <p class="text-on-surface-variant font-medium text-sm">Yesterday, 9:12 PM • Entertainment</p>
+            </div>
+          </div>
+          <div class="text-right">
+            <p class="font-headline font-black text-3xl">-$189.00</p>
+            <p class="text-[10px] font-black uppercase tracking-[0.18em] opacity-70">Ticketing</p>
+          </div>
+        </div>
+        <div class="mt-5 bg-white border-2 border-inverse-surface p-4">
+          <p class="font-headline font-black uppercase text-xs tracking-[0.18em] mb-2">AI Insight</p>
+          <p class="font-bold text-sm">Entertainment spend spiked 2.1x above your weekly baseline right after payday.</p>
+        </div>
+        <div class="mt-4 flex gap-2 flex-wrap">
+          <span class="border border-inverse-surface bg-error-container text-on-error-container px-3 py-1 text-xs font-black uppercase">⚠️ Overspending</span>
+          <span class="border border-inverse-surface bg-surface-container px-3 py-1 text-xs font-black uppercase">📊 Trend spike</span>
+          <span class="border border-inverse-surface bg-primary-container px-3 py-1 text-xs font-black uppercase">Impulse window</span>
+        </div>
+        <p class="mt-4 text-sm font-bold text-on-surface-variant">Pattern: large fun purchases consistently land within 24 hours of fresh cash hitting the account.</p>
+      </article>
+
+      <article class="interactive-lift bg-tertiary-container border-4 border-inverse-surface p-6 hard-shadow">
+        <div class="flex justify-between items-start gap-4 flex-wrap">
+          <div class="flex items-center gap-4">
+            <div class="w-14 h-14 bg-white border-2 border-inverse-surface flex items-center justify-center text-3xl hard-shadow-sm">☕</div>
+            <div>
+              <h3 class="font-headline font-extrabold text-2xl uppercase tracking-tight">GLITCH COFFEE</h3>
+              <p class="text-on-surface-variant font-medium text-sm">Yesterday, 8:05 AM • Coffee</p>
+            </div>
+          </div>
+          <div class="text-right">
+            <p class="font-headline font-black text-3xl">-$6.75</p>
+            <p class="text-[10px] font-black uppercase tracking-[0.18em] opacity-70">Routine Spend</p>
+          </div>
+        </div>
+        <div class="mt-5 bg-primary border-2 border-inverse-surface p-4 text-primary-container">
+          <p class="font-headline font-black uppercase text-xs tracking-[0.18em] mb-2">AI Insight</p>
+          <p class="font-bold text-sm">Coffee purchases are small individually, but they are now your most frequent convenience transaction.</p>
+        </div>
+        <div class="mt-4 flex gap-2 flex-wrap">
+          <span class="border border-inverse-surface bg-surface-container px-3 py-1 text-xs font-black uppercase">📊 Habit loop</span>
+          <span class="border border-inverse-surface bg-white px-3 py-1 text-xs font-black uppercase">Morning trigger</span>
+          <span class="border border-inverse-surface bg-primary-container px-3 py-1 text-xs font-black uppercase">Recoverable spend</span>
+        </div>
+        <p class="mt-4 text-sm font-bold text-on-surface-variant">Pattern: repeat coffee spend is occurring on autopilot, which makes it the easiest category to trim without heavy lifestyle change.</p>
+      </article>
+
+      <article class="interactive-lift bg-white border-4 border-inverse-surface p-6 hard-shadow">
+        <div class="flex justify-between items-start gap-4 flex-wrap">
+          <div class="flex items-center gap-4">
+            <div class="w-14 h-14 bg-secondary border-2 border-inverse-surface flex items-center justify-center hard-shadow-sm text-white text-3xl">🛍️</div>
+            <div>
+              <h3 class="font-headline font-extrabold text-2xl uppercase tracking-tight">URBAN OUTFIT</h3>
+              <p class="text-on-surface-variant font-medium text-sm">Nov 12, 4:20 PM • Apparel</p>
+            </div>
+          </div>
+          <div class="text-right">
+            <p class="font-headline font-black text-3xl">-$112.99</p>
+            <p class="text-[10px] font-black uppercase tracking-[0.18em] opacity-70">Split Purchase</p>
+          </div>
+        </div>
+        <div class="mt-5 bg-surface-container border-2 border-inverse-surface p-4">
+          <p class="font-headline font-black uppercase text-xs tracking-[0.18em] mb-2">AI Insight</p>
+          <p class="font-bold text-sm">Apparel spending is arriving in fewer purchases, but each one is larger than your normal average basket.</p>
+        </div>
+        <div class="mt-4 flex gap-2 flex-wrap">
+          <span class="border border-inverse-surface bg-error-container text-on-error-container px-3 py-1 text-xs font-black uppercase">⚠️ Overspending</span>
+          <span class="border border-inverse-surface bg-secondary-container px-3 py-1 text-xs font-black uppercase">High basket size</span>
+          <span class="border border-inverse-surface bg-surface-container px-3 py-1 text-xs font-black uppercase">Shared cost</span>
+        </div>
+        <p class="mt-4 text-sm font-bold text-on-surface-variant">Pattern: apparel spikes are less frequent than food or coffee, but they hit harder and compress your savings progress in a single swipe.</p>
+      </article>
+    </div>
+
+    <button onclick="showToast('Insight scan refreshed.')" class="fixed bottom-24 right-6 w-16 h-16 bg-primary border-4 border-inverse-surface text-primary-container flex items-center justify-center hard-shadow hover:-translate-x-0.5 hover:-translate-y-0.5 active-press transition-all z-40">
+      <span class="material-symbols-outlined text-3xl">auto_awesome</span>
+    </button>
+  </main>
+  <main class="hidden max-w-2xl mx-auto px-4 pt-8 pb-8" aria-hidden="true">
+    <div class="space-y-10">
+
+      <!-- Card 1: Burger -->
+      <div class="bg-primary-container border-4 border-inverse-surface p-6 hard-shadow hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all">
+        <div class="flex justify-between items-start mb-4">
+          <div class="flex items-center gap-4">
+            <div class="w-16 h-16 bg-white border-2 border-inverse-surface flex items-center justify-center text-4xl hard-shadow-sm">🍔</div>
+            <div><h3 class="font-headline font-extrabold text-2xl uppercase tracking-tight">BURGER REBEL</h3><p class="text-on-surface-variant font-medium text-sm">Today, 2:45 PM</p></div>
+          </div>
+          <div class="font-headline font-black text-3xl">-$24.50</div>
+        </div>
+        <div class="bg-white border-2 border-inverse-surface p-3 italic font-semibold text-on-surface flex items-center gap-3">
+          <span class="material-symbols-outlined text-secondary">sticky_note_2</span>
+          "Cheat day is every day lol"
+          <span class="ml-auto bg-tertiary-container px-2 py-1 text-[10px] not-italic border border-inverse-surface">#CRAVINGS</span>
+        </div>
+        <div class="mt-4 flex gap-2 flex-wrap">
+          <button onclick="likePost(this)" class="like-btn flex items-center gap-1 border-2 border-inverse-surface px-3 py-1 bg-surface hover:bg-secondary-container transition-colors font-bold text-xs">
+            <span class="material-symbols-outlined text-sm">favorite</span><span class="count">12</span>
+          </button>
+          <button class="flex items-center gap-1 border-2 border-inverse-surface px-3 py-1 bg-surface hover:bg-tertiary-container transition-colors font-bold text-xs">
+            <span class="material-symbols-outlined text-sm">chat_bubble</span> 3
+          </button>
+        </div>
+      </div>
+
+      <!-- Card 2: Tickets -->
+      <div class="bg-secondary-container border-4 border-inverse-surface p-6 hard-shadow hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all">
+        <div class="flex justify-between items-start mb-4">
+          <div class="flex items-center gap-4">
+            <div class="w-16 h-16 bg-white border-2 border-inverse-surface flex items-center justify-center text-4xl hard-shadow-sm">🎟️</div>
+            <div><h3 class="font-headline font-extrabold text-2xl uppercase tracking-tight">VIBE FESTIVAL</h3><p class="text-on-surface-variant font-medium text-sm">Yesterday, 9:12 PM</p></div>
+          </div>
+          <div class="font-headline font-black text-3xl">-$189.00</div>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div class="bg-inverse-surface p-1">
+            <div class="w-full h-32 bg-gradient-to-br from-purple-900 via-pink-800 to-yellow-600 flex items-center justify-center border-2 border-white">
+              <span class="text-white font-headline font-black text-2xl opacity-80">🎪 FESTIVAL</span>
+            </div>
+          </div>
+          <div class="flex flex-col justify-center gap-2">
+            <div class="bg-primary-container border-2 border-inverse-surface p-2 text-center font-black text-xs rotate-2">VIP PASS</div>
+            <div class="bg-tertiary-container border-2 border-inverse-surface p-2 text-center font-black text-xs -rotate-1">SEC 404</div>
+          </div>
+        </div>
+        <div class="mt-4 flex gap-2">
+          <button onclick="likePost(this)" class="like-btn flex items-center gap-1 border-2 border-inverse-surface px-3 py-1 bg-surface hover:bg-secondary-container transition-colors font-bold text-xs">
+            <span class="material-symbols-outlined text-sm" style="font-variation-settings:'FILL' 1;">favorite</span><span class="count">45</span>
+          </button>
+          <button onclick="showToast('Shared! 🔗')" class="flex items-center gap-1 border-2 border-inverse-surface px-3 py-1 bg-surface hover:bg-tertiary-container transition-colors font-bold text-xs">
+            <span class="material-symbols-outlined text-sm">share</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Card 3: Coffee -->
+      <div class="bg-tertiary-container border-4 border-inverse-surface p-6 hard-shadow hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all">
+        <div class="flex justify-between items-start mb-4">
+          <div class="flex items-center gap-4">
+            <div class="w-16 h-16 bg-white border-2 border-inverse-surface flex items-center justify-center text-4xl hard-shadow-sm">☕</div>
+            <div><h3 class="font-headline font-extrabold text-2xl uppercase tracking-tight">GLITCH COFFEE</h3><p class="text-on-surface-variant font-medium text-sm">Yesterday, 8:05 AM</p></div>
+          </div>
+          <div class="font-headline font-black text-3xl">-$6.75</div>
+        </div>
+        <div class="bg-primary border-4 border-inverse-surface p-4 flex items-center gap-4 text-primary-container">
+          <span class="material-symbols-outlined text-4xl">bolt</span>
+          <div class="font-headline font-black italic text-lg leading-tight">STREAK ALIVE! 5 DAYS OF NO STARBUCKS</div>
+        </div>
+        <div class="mt-4 flex items-center justify-between">
+          <div class="flex -space-x-2">
+            <div class="w-8 h-8 border-2 border-inverse-surface bg-secondary-container flex items-center justify-center font-bold text-[10px]">JD</div>
+            <div class="w-8 h-8 border-2 border-inverse-surface bg-primary-container flex items-center justify-center font-bold text-[10px]">ML</div>
+            <div class="w-8 h-8 border-2 border-inverse-surface bg-white flex items-center justify-center font-bold text-[10px]">+5</div>
+          </div>
+          <button onclick="showToast('Loading discussion... 💬')" class="font-headline font-bold underline text-xs uppercase italic hover:text-secondary">View Discussion</button>
+        </div>
+      </div>
+
+      <!-- Card 4: Shopping -->
+      <div class="bg-white border-4 border-inverse-surface p-6 hard-shadow hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all">
+        <div class="flex justify-between items-start mb-4">
+          <div class="flex items-center gap-4">
+            <div class="w-16 h-16 bg-secondary border-2 border-inverse-surface flex items-center justify-center text-4xl hard-shadow-sm text-white">🛍️</div>
+            <div><h3 class="font-headline font-extrabold text-2xl uppercase tracking-tight">URBAN OUTFIT</h3><p class="text-on-surface-variant font-medium text-sm">Nov 12, 4:20 PM</p></div>
+          </div>
+          <div class="font-headline font-black text-3xl">-$112.99</div>
+        </div>
+        <div class="border-t-2 border-dashed border-inverse-surface pt-4 mt-4 flex flex-wrap gap-2">
+          <span class="bg-surface-container border border-inverse-surface px-2 py-1 text-xs font-bold uppercase">Apparel</span>
+          <span class="bg-surface-container border border-inverse-surface px-2 py-1 text-xs font-bold uppercase">Split with Sarah</span>
+          <span class="bg-error-container border border-inverse-surface px-2 py-1 text-xs font-bold uppercase text-on-error-container">Budget Warning!</span>
+        </div>
+        <div class="mt-6 flex justify-between items-center">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-secondary">add_reaction</span>
+            <span class="text-xs font-bold text-on-surface-variant italic">Add a sticker to this purchase</span>
+          </div>
+          <span class="material-symbols-outlined cursor-pointer hover:scale-125 transition-transform">more_horiz</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- FAB -->
+    <button onclick="showToast('New transaction added! ✅')" class="fixed bottom-24 right-6 w-16 h-16 bg-primary border-4 border-inverse-surface text-primary-container flex items-center justify-center hard-shadow hover:-translate-x-0.5 hover:-translate-y-0.5 active-press transition-all z-40">
+      <span class="material-symbols-outlined text-3xl">add</span>
+    </button>
+  </main>
+</div>
+
+
+<!-- ══════════════════════════════
+     PAGE: BUCKETS
+══════════════════════════════ -->
+<div id="page-buckets" class="page">
+  <main class="p-6 max-w-4xl mx-auto">
+    <div class="mb-10 flex justify-between items-end flex-wrap gap-4">
+      <div>
+        <h1 class="font-headline text-6xl font-black tracking-tighter uppercase leading-none">BUCKETS</h1>
+        <p class="font-headline font-bold text-secondary uppercase tracking-widest mt-2">Level up your stash</p>
+      </div>
+      <button onclick="createBucket()" class="interactive-lift bg-primary-container border-4 border-inverse-surface p-4 hard-shadow hover:hard-shadow-lg active-press flex items-center gap-2">
+        <span class="material-symbols-outlined font-bold">add</span>
+        <span class="font-headline font-extrabold uppercase">New Bucket</span>
+      </button>
+    </div>
+
+    <!-- Hero Stat -->
+    <div class="bg-tertiary-container border-4 border-inverse-surface p-6 mb-12 hard-shadow relative overflow-hidden">
+      <div class="relative z-10">
+        <p class="font-headline font-bold text-on-tertiary-container uppercase text-sm mb-1">Total War Chest</p>
+        <div class="flex items-baseline gap-2 flex-wrap">
+          <span id="bucket-total-war-chest" class="font-headline text-7xl font-black tracking-tighter">$12,450.00</span>
+          <span id="bucket-growth-pill" class="font-headline font-bold text-secondary text-xl">+12%</span>
+        </div>
+        <div class="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div class="bg-white/80 border-2 border-inverse-surface p-4 hard-shadow-sm backdrop-blur-sm">
+            <p class="text-[10px] font-black uppercase tracking-[0.2em] opacity-70">Active Buckets</p>
+            <p id="bucket-count-stat" class="font-headline font-black text-3xl mt-2">6</p>
+          </div>
+          <div class="bg-white/80 border-2 border-inverse-surface p-4 hard-shadow-sm backdrop-blur-sm">
+            <p class="text-[10px] font-black uppercase tracking-[0.2em] opacity-70">Monthly Auto-Stash</p>
+            <p id="bucket-monthly-stat" class="font-headline font-black text-3xl mt-2">$640</p>
+          </div>
+          <div class="bg-white/80 border-2 border-inverse-surface p-4 hard-shadow-sm backdrop-blur-sm">
+            <p class="text-[10px] font-black uppercase tracking-[0.2em] opacity-70">Average Progress</p>
+            <p id="bucket-progress-stat" class="font-headline font-black text-3xl mt-2">58%</p>
+          </div>
+        </div>
+      </div>
+      <div class="absolute right-[-20px] top-[-10px] opacity-10 rotate-12">
+        <span class="material-symbols-outlined text-[180px]" style="font-variation-settings:'FILL' 1;">monetization_on</span>
+      </div>
+    </div>
+
+    <div class="mb-6 flex flex-wrap items-center gap-3">
+      <button type="button" data-filter="all" onclick="setBucketFilter('all')" class="bucket-filter-btn active interactive-soft border-2 border-inverse-surface px-4 py-2 font-headline font-black text-xs uppercase tracking-wide bg-white">All Buckets</button>
+      <button type="button" data-filter="close" onclick="setBucketFilter('close')" class="bucket-filter-btn interactive-soft border-2 border-inverse-surface px-4 py-2 font-headline font-black text-xs uppercase tracking-wide bg-white">Almost There</button>
+      <button type="button" data-filter="building" onclick="setBucketFilter('building')" class="bucket-filter-btn interactive-soft border-2 border-inverse-surface px-4 py-2 font-headline font-black text-xs uppercase tracking-wide bg-white">Building Up</button>
+      <button type="button" data-filter="fresh" onclick="setBucketFilter('fresh')" class="bucket-filter-btn interactive-soft border-2 border-inverse-surface px-4 py-2 font-headline font-black text-xs uppercase tracking-wide bg-white">Fresh Buckets</button>
+      <span id="bucket-filter-caption" class="text-xs font-black uppercase tracking-[0.2em] text-on-surface-variant">Showing every stash lane.</span>
+    </div>
+
+    <div id="buckets-grid" class="grid grid-cols-1 md:grid-cols-2 gap-8">
+
+      <!-- Tokyo Trip -->
+      <div class="bg-white border-4 border-inverse-surface p-6 hard-shadow flex flex-col h-full hover:-translate-x-1 hover:-translate-y-1 hover:hard-shadow-lg transition-all cursor-pointer group">
+        <div class="flex justify-between items-start mb-6">
+          <div class="bg-secondary-container border-2 border-inverse-surface p-3 rotate-[-3deg] group-hover:rotate-0 transition-transform">
+            <span class="material-symbols-outlined text-4xl" style="font-variation-settings:'FILL' 1;">flight_takeoff</span>
+          </div>
+          <span class="font-headline font-black text-2xl">75%</span>
+        </div>
+        <h3 class="font-headline text-3xl font-black mb-2 uppercase tracking-tight">Tokyo Trip ✈️</h3>
+        <p class="font-body font-bold text-on-surface-variant mb-6 text-sm">Target: $5,000.00</p>
+        <div class="mt-auto">
+          <div class="w-full h-12 border-4 border-inverse-surface bg-surface-container overflow-hidden flex">
+            <div class="h-full bg-primary border-r-4 border-inverse-surface" style="width:75%"></div>
+          </div>
+          <div class="flex justify-between mt-2"><span class="font-headline font-bold text-sm">$3,750 saved</span><span class="font-headline font-bold text-sm text-on-surface-variant">$1,250 left</span></div>
+        </div>
+      </div>
+
+      <!-- New Kicks -->
+      <div class="bg-white border-4 border-inverse-surface p-6 hard-shadow flex flex-col h-full hover:-translate-x-1 hover:-translate-y-1 hover:hard-shadow-lg transition-all cursor-pointer group">
+        <div class="flex justify-between items-start mb-6">
+          <div class="bg-tertiary-container border-2 border-inverse-surface p-3 rotate-[3deg] group-hover:rotate-0 transition-transform">
+            <span class="material-symbols-outlined text-4xl" style="font-variation-settings:'FILL' 1;">steps</span>
+          </div>
+          <span class="font-headline font-black text-2xl">40%</span>
+        </div>
+        <h3 class="font-headline text-3xl font-black mb-2 uppercase tracking-tight">New Kicks 👟</h3>
+        <p class="font-body font-bold text-on-surface-variant mb-6 text-sm">Target: $450.00</p>
+        <div class="mt-auto">
+          <div class="w-full h-12 border-4 border-inverse-surface bg-surface-container overflow-hidden flex">
+            <div class="h-full bg-secondary border-r-4 border-inverse-surface" style="width:40%"></div>
+          </div>
+          <div class="flex justify-between mt-2"><span class="font-headline font-bold text-sm">$180 saved</span><span class="font-headline font-bold text-sm text-on-surface-variant">$270 left</span></div>
+        </div>
+      </div>
+
+      <!-- Festival Fund – full width -->
+      <div class="md:col-span-2 bg-primary-container border-4 border-inverse-surface p-8 hard-shadow hover:-translate-x-1 hover:-translate-y-1 hover:hard-shadow-lg transition-all cursor-pointer group">
+        <div class="flex flex-col md:flex-row gap-8 items-center">
+          <div class="shrink-0 bg-white border-4 border-inverse-surface p-6 -rotate-2 group-hover:rotate-0 transition-transform">
+            <span class="material-symbols-outlined text-6xl" style="font-variation-settings:'FILL' 1;">festival</span>
+          </div>
+          <div class="flex-1 w-full">
+            <div class="flex justify-between items-end mb-4 flex-wrap gap-2">
+              <div>
+                <h3 class="font-headline text-4xl font-black uppercase tracking-tighter">Festival Fund 🎪</h3>
+                <p class="font-body font-extrabold text-on-primary-container">COACHELLA OR BUST</p>
+              </div>
+              <span class="font-headline text-5xl font-black">92%</span>
+            </div>
+            <div class="w-full h-16 border-4 border-inverse-surface bg-white overflow-hidden flex">
+              <div class="h-full bg-tertiary border-r-4 border-inverse-surface" style="width:92%"></div>
+            </div>
+            <div class="flex justify-between mt-3 font-headline font-bold uppercase italic flex-wrap gap-2">
+              <span>Almost there! $2,300 / $2,500</span>
+              <span class="text-secondary">CRUSHING IT</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Empty State -->
+      <div id="bucket-empty-state" class="bg-surface-container-highest border-4 border-dashed border-inverse-surface p-6 flex flex-col h-full opacity-60 hover:opacity-100 transition-opacity cursor-pointer" onclick="createBucket()">
+        <div class="flex flex-col items-center justify-center flex-1 py-8 text-on-surface-variant">
+          <span class="material-symbols-outlined text-5xl mb-4">add_circle</span>
+          <p class="font-headline font-black text-xl uppercase tracking-tighter">Dreaming of something?</p>
+          <div class="mt-4 bg-inverse-surface text-white px-6 py-2 font-headline font-bold uppercase">Start Now</div>
+        </div>
+      </div>
+
+      <!-- Gaming Rig -->
+      <div class="bg-white border-4 border-inverse-surface p-6 hard-shadow flex flex-col h-full hover:-translate-x-1 hover:-translate-y-1 hover:hard-shadow-lg transition-all cursor-pointer group">
+        <div class="flex justify-between items-start mb-6">
+          <div class="bg-primary-container border-2 border-inverse-surface p-3 rotate-[-6deg] group-hover:rotate-0 transition-transform">
+            <span class="material-symbols-outlined text-4xl" style="font-variation-settings:'FILL' 1;">sports_esports</span>
+          </div>
+          <span class="font-headline font-black text-2xl">15%</span>
+        </div>
+        <h3 class="font-headline text-3xl font-black mb-2 uppercase tracking-tight">Gaming Rig 🖥️</h3>
+        <p class="font-body font-bold text-on-surface-variant mb-6 text-sm">Target: $2,800.00</p>
+        <div class="mt-auto">
+          <div class="w-full h-12 border-4 border-inverse-surface bg-surface-container overflow-hidden flex">
+            <div class="h-full bg-on-tertiary-fixed-variant border-r-4 border-inverse-surface" style="width:15%"></div>
+          </div>
+          <div class="flex justify-between mt-2"><span class="font-headline font-bold text-sm">$420 saved</span><span class="font-headline font-bold text-sm text-on-surface-variant">Early days</span></div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Buckets FAB -->
+  <button onclick="quickBucketBoost()" class="interactive-lift fixed bottom-28 right-6 z-40 bg-secondary p-5 border-4 border-inverse-surface hard-shadow active-press hover:hard-shadow-lg">
+    <span class="material-symbols-outlined text-white text-4xl" style="font-variation-settings:'FILL' 1;">bolt</span>
+  </button>
+</div>
+
+
+<!-- ══════════════════════════════
+     PAGE: INTEL
+══════════════════════════════ -->
+<div id="page-intel" class="page">
+  <main class="px-4 pt-8 max-w-4xl mx-auto pb-8">
+    <div class="flex flex-col gap-2 mb-8">
+      <h1 class="text-6xl font-black font-headline tracking-tighter text-inverse-surface uppercase">INTEL</h1>
+      <div class="flex gap-2 flex-wrap">
+        <span id="intel-month" onclick="switchIntelTab('month')" class="cursor-pointer bg-secondary text-on-secondary px-3 py-1 text-sm font-bold border-2 border-inverse-surface hard-shadow-sm uppercase">THIS MONTH</span>
+        <span id="intel-history" onclick="switchIntelTab('history')" class="cursor-pointer bg-surface-container border-2 border-inverse-surface px-3 py-1 text-sm font-bold uppercase hover:bg-surface-container-high transition-colors">HISTORY</span>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div class="interactive-lift bg-primary-container border-4 border-inverse-surface p-5 hard-shadow">
+        <p class="text-[10px] font-black uppercase tracking-[0.22em] opacity-70">Daily Burn</p>
+        <p id="intel-daily-burn" class="font-headline font-black text-4xl mt-2">$81</p>
+        <p class="text-xs font-bold mt-2 text-on-surface-variant">Average spend per day in this view.</p>
+      </div>
+      <div class="interactive-lift bg-secondary-container border-4 border-inverse-surface p-5 hard-shadow">
+        <p class="text-[10px] font-black uppercase tracking-[0.22em] opacity-70">Budget Runway</p>
+        <p id="intel-runway" class="font-headline font-black text-4xl mt-2">14 days</p>
+        <p class="text-xs font-bold mt-2 text-on-surface-variant">How long your current pace stays comfy.</p>
+      </div>
+      <div class="interactive-lift bg-tertiary-container border-4 border-inverse-surface p-5 hard-shadow">
+        <p class="text-[10px] font-black uppercase tracking-[0.22em] opacity-70">Recovery Move</p>
+        <p id="intel-rebound" class="font-headline font-black text-4xl mt-2">$240</p>
+        <p class="text-xs font-bold mt-2 text-on-surface-variant">Quick win if you trim the loudest category.</p>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+
+      <!-- Bar Chart -->
+      <div class="md:col-span-7 bg-surface-container-lowest border-4 border-inverse-surface p-6 hard-shadow-lg">
+        <div class="flex justify-between items-start mb-8 flex-wrap gap-3">
+          <div>
+            <h2 class="text-2xl font-black font-headline uppercase leading-none mb-1">Where did it go?</h2>
+            <p id="intel-total-damage" class="font-bold text-on-surface-variant opacity-70">TOTAL DAMAGE: $2,450.00</p>
+          </div>
+          <span class="material-symbols-outlined text-4xl text-primary">analytics</span>
+        </div>
+        <div class="flex items-end justify-between h-48 gap-3 mb-4">
+          <div class="flex-1 flex flex-col items-center gap-2">
+            <div id="intel-bar-1" class="w-full bg-primary-container border-4 border-inverse-surface relative group hover:bg-primary transition-colors cursor-pointer" style="height:85%"><span id="intel-bar-1-value" class="absolute -top-8 left-1/2 -translate-x-1/2 font-black text-sm whitespace-nowrap">$1.2k</span></div>
+            <span id="intel-bar-1-label" class="text-[10px] font-black uppercase text-center leading-tight">Treat Yourself</span>
+          </div>
+          <div class="flex-1 flex flex-col items-center gap-2">
+            <div id="intel-bar-2" class="w-full bg-secondary-container border-4 border-inverse-surface relative group hover:bg-secondary transition-colors cursor-pointer" style="height:60%"><span id="intel-bar-2-value" class="absolute -top-8 left-1/2 -translate-x-1/2 font-black text-sm">$800</span></div>
+            <span id="intel-bar-2-label" class="text-[10px] font-black uppercase text-center leading-tight">Rent & Cry</span>
+          </div>
+          <div class="flex-1 flex flex-col items-center gap-2">
+            <div id="intel-bar-3" class="w-full bg-tertiary-container border-4 border-inverse-surface relative group hover:bg-tertiary transition-colors cursor-pointer" style="height:35%"><span id="intel-bar-3-value" class="absolute -top-8 left-1/2 -translate-x-1/2 font-black text-sm">$450</span></div>
+            <span id="intel-bar-3-label" class="text-[10px] font-black uppercase text-center leading-tight">Coffee Addiction</span>
+          </div>
+          <div class="flex-1 flex flex-col items-center gap-2">
+            <div id="intel-bar-4" class="w-full bg-surface-variant border-4 border-inverse-surface relative group hover:bg-on-surface-variant transition-colors cursor-pointer" style="height:15%"><span id="intel-bar-4-value" class="absolute -top-8 left-1/2 -translate-x-1/2 font-black text-sm">$0</span></div>
+            <span id="intel-bar-4-label" class="text-[10px] font-black uppercase text-center leading-tight">Actual Savings</span>
+          </div>
+        </div>
+        <p id="intel-hover-detail" class="text-xs font-black uppercase tracking-[0.18em] text-on-surface-variant">Hover a bar to spotlight the category breakdown.</p>
+      </div>
+
+      <!-- Side Cards -->
+      <div class="md:col-span-5 flex flex-col gap-6">
+        <div class="interactive-lift bg-secondary-container border-4 border-inverse-surface p-4 hard-shadow-lg relative overflow-hidden">
+          <div class="absolute -right-4 -top-4 opacity-10"><span class="material-symbols-outlined text-9xl" style="font-variation-settings:'FILL' 1;">bolt</span></div>
+          <h3 id="intel-vibe-title" class="font-black text-xl font-headline uppercase italic">VIBE CHECK</h3>
+          <p id="intel-vibe-copy" class="font-bold text-sm mb-4">You spent 40% more on "Coffee Addiction" than last week. Local baristas recognize your walk.</p>
+          <button id="intel-vibe-button" onclick="showToast('Improvement plan set!')" class="w-full bg-inverse-surface text-white py-2 font-black uppercase text-xs hover:bg-secondary transition-colors active-press">DO BETTER</button>
+        </div>
+        <div class="interactive-lift bg-primary-container border-4 border-inverse-surface p-4 hard-shadow-lg">
+          <div class="flex items-center gap-4">
+            <div class="bg-inverse-surface text-primary-container p-2 border-2 border-inverse-surface">
+              <span class="material-symbols-outlined text-3xl">trending_up</span>
+            </div>
+            <div><h3 class="font-black text-lg font-headline uppercase leading-none">Net Worth</h3><p id="intel-net-worth" class="text-2xl font-black">$12,400.67</p></div>
+          </div>
+        </div>
+        <div id="intel-opportunity-cards" class="grid grid-cols-1 gap-4"></div>
+      </div>
+
+      <!-- Deep Dive -->
+      <div class="md:col-span-12 bg-surface-container-lowest border-4 border-inverse-surface p-6 hard-shadow-lg">
+        <h2 id="intel-deep-dive-title" class="text-2xl font-black font-headline uppercase mb-6">Deep Dive: Treat Yourself</h2>
+        <div class="flex flex-col md:flex-row gap-8 items-center">
+          <div class="relative w-48 h-48 border-8 border-inverse-surface rounded-full flex items-center justify-center bg-white hard-shadow shrink-0">
+            <div class="absolute inset-0 rounded-full border-[20px] border-primary-container border-r-secondary-container border-b-tertiary-container"></div>
+            <div class="z-10 text-center"><p id="intel-deep-dive-amount" class="font-black text-2xl">$1,200</p><p class="text-[10px] font-bold uppercase">Current Damage</p></div>
+          </div>
+          <div class="flex-1 w-full">
+            <p id="intel-deep-dive-summary" class="font-bold text-sm text-on-surface-variant mb-4">Hover a bar to swap the breakdown and see where the chaos lives.</p>
+            <div id="intel-deep-dive-items" class="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Hero Insight -->
+      <div class="md:col-span-12 relative h-64 border-4 border-inverse-surface hard-shadow-lg overflow-hidden hover-glow">
+        <div class="absolute inset-0 bg-gradient-to-br from-purple-900 via-indigo-800 to-yellow-500"></div>
+        <div class="absolute inset-0 flex items-end p-6">
+          <div>
+            <span id="intel-hero-badge" class="bg-primary text-on-primary px-2 py-1 font-black text-xs uppercase mb-2 inline-block">Pro Intel</span>
+            <h2 id="intel-hero-title" class="text-3xl font-black text-white font-headline uppercase leading-none mb-2">Cut the coffee, buy the dip.</h2>
+            <p id="intel-hero-copy" class="text-white font-bold opacity-80 max-w-lg">If you redirected your daily $7 oat milk latte into your "BUCKETS", you'd have $2,555 by next year. No cap.</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+
+<!-- ─── BOTTOM NAV ─── -->
+<nav class="fixed bottom-0 left-0 w-full h-20 grid grid-cols-4 items-stretch overflow-hidden bg-[#cafd00] border-t-4 border-[#0c0f0f] z-50">
+  <button id="nav-dash"    onclick="navigate('dash')"    class="nav-btn flex flex-col items-center justify-center text-[#0c0f0f] h-full border-r-2 border-[#0c0f0f] hover:bg-[#bba2ff] transition-colors">
+    <span class="material-symbols-outlined">grid_view</span><span class="font-headline font-bold text-xs uppercase">DASH</span>
+  </button>
+  <button id="nav-feed"    onclick="navigate('feed')"    class="nav-btn flex flex-col items-center justify-center text-[#0c0f0f] h-full border-r-2 border-[#0c0f0f] hover:bg-[#bba2ff] transition-colors">
+    <span class="material-symbols-outlined">forum</span><span class="font-headline font-bold text-xs uppercase">FEED</span>
+  </button>
+  <button id="nav-buckets" onclick="navigate('buckets')" class="nav-btn flex flex-col items-center justify-center text-[#0c0f0f] h-full border-r-2 border-[#0c0f0f] hover:bg-[#bba2ff] transition-colors">
+    <span class="material-symbols-outlined">shopping_basket</span><span class="font-headline font-bold text-xs uppercase">BUCKETS</span>
+  </button>
+  <button id="nav-intel"   onclick="navigate('intel')"   class="nav-btn flex flex-col items-center justify-center text-[#0c0f0f] h-full hover:bg-[#bba2ff] transition-colors">
+    <span class="material-symbols-outlined">analytics</span><span class="font-headline font-bold text-xs uppercase">INTEL</span>
+  </button>
+</nav>
+
+
+<script>
+let currentPage = 'dash';
+let currentIntelTab = 'month';
+let activeCurrency = 'USD';
+let toastTimer;
+
+const STORAGE_KEYS = {
+  darkMode: 'stash-dark-mode',
+  currency: 'stash-currency'
+};
+
+const CURRENCIES = {
+  USD: { code: 'USD', label: 'US Dollar', locale: 'en-US', usdRate: 1 },
+  EUR: { code: 'EUR', label: 'Euro', locale: 'en-IE', usdRate: 0.92 },
+  INR: { code: 'INR', label: 'Indian Rupee', locale: 'en-IN', usdRate: 83.15 },
+  GBP: { code: 'GBP', label: 'British Pound', locale: 'en-GB', usdRate: 0.79 }
+};
+
+const LOAD_UP_SOURCES = [
+  { value: 'freelance', label: 'Freelance Work' },
+  { value: 'friend', label: 'Payment from Friend' },
+  { value: 'paycheck', label: 'Paycheck' },
+  { value: 'pocket', label: 'Pocket Money' },
+  { value: 'refund', label: 'Refund or Reimbursement' }
+];
+
+const QUICK_SPEND_CATEGORIES = [
+  { value: 'food', label: 'Food and Coffee', intelBar: 3 },
+  { value: 'lifestyle', label: 'Shopping and Lifestyle', intelBar: 1 },
+  { value: 'bills', label: 'Bills and Utilities', intelBar: 2 },
+  { value: 'fun', label: 'Entertainment and Fun', intelBar: 1 },
+  { value: 'transport', label: 'Transport and Travel', intelBar: 2 },
+  { value: 'other', label: 'Other', intelBar: 1 }
+];
+
+const DYNAMIC_CURRENCY_IDS = new Set([
+  'total-liquidity-value',
+  'bucket-total-war-chest',
+  'bucket-monthly-stat',
+  'intel-total-damage',
+  'intel-net-worth',
+  'intel-daily-burn',
+  'intel-rebound',
+  'intel-deep-dive-amount',
+  'intel-bar-1-value',
+  'intel-bar-2-value',
+  'intel-bar-3-value',
+  'intel-bar-4-value'
+]);
+
+const trackedMoneyNodes = new WeakSet();
+const moneyTextEntries = [];
+const modalState = { submitHandler: null };
+let currentBucketFilter = 'all';
+let currentIntelFocusIndex = 0;
+
+const BUCKET_THEMES = {
+  primary: { card: 'bg-primary-container', iconWrap: 'bg-white', fill: 'bg-tertiary', accent: 'text-secondary', surface: 'bg-white' },
+  secondary: { card: 'bg-secondary-container', iconWrap: 'bg-white', fill: 'bg-secondary', accent: 'text-tertiary', surface: 'bg-white' },
+  tertiary: { card: 'bg-tertiary-container', iconWrap: 'bg-white', fill: 'bg-primary', accent: 'text-primary', surface: 'bg-white' },
+  neutral: { card: 'bg-white', iconWrap: 'bg-surface-container', fill: 'bg-inverse-surface', accent: 'text-primary', surface: 'bg-surface-container' }
+};
+
+let bucketData = [
+  { id: 'tokyo', name: 'Tokyo Trip', subtitle: 'Flights, food, and late-night arcade runs.', targetUsd: 5000, savedUsd: 3750, monthlyUsd: 260, icon: 'flight_takeoff', theme: 'secondary', featured: false, isNew: false },
+  { id: 'kicks', name: 'New Kicks', subtitle: 'Rotation upgrade for the next drop.', targetUsd: 450, savedUsd: 180, monthlyUsd: 45, icon: 'steps', theme: 'tertiary', featured: false, isNew: true },
+  { id: 'festival', name: 'Festival Fund', subtitle: 'Main stage, good weather, zero regrets.', targetUsd: 2500, savedUsd: 2300, monthlyUsd: 110, icon: 'festival', theme: 'primary', featured: true, isNew: false },
+  { id: 'rig', name: 'Gaming Rig', subtitle: 'Frames first, excuses never.', targetUsd: 2800, savedUsd: 420, monthlyUsd: 70, icon: 'sports_esports', theme: 'neutral', featured: false, isNew: false },
+  { id: 'buffer', name: 'Rainy Day Buffer', subtitle: 'Emergency calm without the panic scroll.', targetUsd: 3500, savedUsd: 2100, monthlyUsd: 90, icon: 'shield_with_house', theme: 'primary', featured: false, isNew: false },
+  { id: 'creator', name: 'Creator Kit', subtitle: 'Camera, lights, and clean audio.', targetUsd: 1600, savedUsd: 960, monthlyUsd: 65, icon: 'photo_camera', theme: 'secondary', featured: false, isNew: true }
+];
+
+const intelSnapshots = {
+  month: {
+    totalDamage: 2450,
+    netWorth: 12400.67,
+    dailyBurnUsd: 81.67,
+    runwayLabel: '14 days',
+    reboundUsd: 240,
+    vibeTitle: 'Impulse is louder than the plan',
+    vibeCopy: 'Treat-yourself spend is running nearly double your savings deposits this month.',
+    vibeButton: 'LOCK A NO-SPEND WEEKEND',
+    heroBadge: 'Pro Intel',
+    heroTitle: 'Turn cafe drift into a bucket streak.',
+    heroCopy: 'Redirecting two coffee runs a week into Tokyo Trip adds about __A__ to that bucket in six months.',
+    heroAmountUsd: 336,
+    opportunities: [
+      { icon: 'movie', title: 'Subscription trim', copy: 'Pausing one underused service frees', amountUsd: 18, tone: 'bg-white' },
+      { icon: 'local_cafe', title: 'Coffee cooldown', copy: 'Swapping one cafe stop a week saves', amountUsd: 28, tone: 'bg-tertiary-container' }
+    ],
+    bars: [
+      {
+        label: 'Treat Yourself',
+        amount: 1200,
+        height: 85,
+        summary: 'Streetwear, delivery, and impulse entertainment are taking the biggest slice.',
+        items: [
+          { icon: 'shopping_bag', label: 'Streetwear Drops', amountUsd: 640 },
+          { icon: 'restaurant', label: 'Late-night delivery', amountUsd: 320 },
+          { icon: 'movie', label: 'Subscriptions', amountUsd: 180 },
+          { icon: 'stadia_controller', label: 'Misc chaos', amountUsd: 60 }
+        ]
+      },
+      {
+        label: 'Rent and Bills',
+        amount: 800,
+        height: 60,
+        summary: 'Core costs are steady, but utilities spiked harder than usual.',
+        items: [
+          { icon: 'home', label: 'Rent chunk', amountUsd: 540 },
+          { icon: 'electric_bolt', label: 'Utilities', amountUsd: 120 },
+          { icon: 'wifi', label: 'Internet', amountUsd: 85 },
+          { icon: 'phone_iphone', label: 'Phone bill', amountUsd: 55 }
+        ]
+      },
+      {
+        label: 'Coffee Addiction',
+        amount: 450,
+        height: 35,
+        summary: 'You are paying premium prices for routine caffeine and the habit is compounding.',
+        items: [
+          { icon: 'local_cafe', label: 'Cafe runs', amountUsd: 260 },
+          { icon: 'bakery_dining', label: 'Pastry extras', amountUsd: 90 },
+          { icon: 'delivery_dining', label: 'App orders', amountUsd: 60 },
+          { icon: 'coffee_maker', label: 'Beans and gear', amountUsd: 40 }
+        ]
+      },
+      {
+        label: 'Actual Savings',
+        amount: 320,
+        height: 24,
+        summary: 'Savings still moved, but they deserve first-class treatment instead of leftovers.',
+        items: [
+          { icon: 'savings', label: 'Auto-save', amountUsd: 150 },
+          { icon: 'account_balance', label: 'Round-ups', amountUsd: 70 },
+          { icon: 'travel_explore', label: 'Tokyo bucket', amountUsd: 60 },
+          { icon: 'celebration', label: 'Festival bucket', amountUsd: 40 }
+        ]
+      }
+    ]
+  },
+  history: {
+    totalDamage: 9860,
+    netWorth: 13840.52,
+    dailyBurnUsd: 54.78,
+    runwayLabel: '31 days',
+    reboundUsd: 420,
+    vibeTitle: 'Long-range trend is still healthy',
+    vibeCopy: 'Travel and experiences are your biggest flex, but savings have stayed alive over time.',
+    vibeButton: 'KEEP THE BALANCE',
+    heroBadge: 'Trendline',
+    heroTitle: 'Travel is the joy lane. Keep it, just cap it.',
+    heroCopy: 'A modest monthly cap on travel extras would redirect roughly __A__ toward long-term buckets each year.',
+    heroAmountUsd: 960,
+    opportunities: [
+      { icon: 'luggage', title: 'Trip cap', copy: 'Capping extras on one trip saves', amountUsd: 120, tone: 'bg-white' },
+      { icon: 'account_balance', title: 'Auto-invest boost', copy: 'Adding a tiny weekly transfer builds', amountUsd: 52, tone: 'bg-primary-container' }
+    ],
+    bars: [
+      {
+        label: 'Rent and Bills',
+        amount: 3600,
+        height: 78,
+        summary: 'Housing remained the anchor expense, but it stayed predictable across the full period.',
+        items: [
+          { icon: 'home', label: 'Rent', amountUsd: 2820 },
+          { icon: 'electric_bolt', label: 'Utilities', amountUsd: 330 },
+          { icon: 'phone_iphone', label: 'Phone and data', amountUsd: 210 },
+          { icon: 'shield', label: 'Insurance', amountUsd: 240 }
+        ]
+      },
+      {
+        label: 'Travel and Events',
+        amount: 2800,
+        height: 62,
+        summary: 'Flights, hotel top-ups, and festival tickets made this your standout fun lane.',
+        items: [
+          { icon: 'flight', label: 'Flights', amountUsd: 1340 },
+          { icon: 'hotel', label: 'Hotel stays', amountUsd: 780 },
+          { icon: 'festival', label: 'Event tickets', amountUsd: 520 },
+          { icon: 'commute', label: 'Local transit', amountUsd: 160 }
+        ]
+      },
+      {
+        label: 'Food and Coffee',
+        amount: 2140,
+        height: 47,
+        summary: 'Food is still a joy purchase, but delivery fees quietly stacked up over time.',
+        items: [
+          { icon: 'restaurant', label: 'Dining out', amountUsd: 980 },
+          { icon: 'delivery_dining', label: 'Delivery fees', amountUsd: 420 },
+          { icon: 'local_cafe', label: 'Coffee shops', amountUsd: 390 },
+          { icon: 'shopping_cart', label: 'Groceries', amountUsd: 350 }
+        ]
+      },
+      {
+        label: 'Investments',
+        amount: 1320,
+        height: 30,
+        summary: 'This is the quiet hero lane. Consistency here is why net worth kept climbing.',
+        items: [
+          { icon: 'monitoring', label: 'Index funds', amountUsd: 760 },
+          { icon: 'savings', label: 'Emergency savings', amountUsd: 280 },
+          { icon: 'currency_bitcoin', label: 'Risk assets', amountUsd: 160 },
+          { icon: 'paid', label: 'Round-ups', amountUsd: 120 }
+        ]
+      }
+    ]
+  }
+};
+
+function parseNumericInput(value) {
+  return Number(String(value).replace(/[^0-9.]/g, ''));
+}
+
+function usdToDisplay(amountUsd) {
+  return amountUsd * CURRENCIES[activeCurrency].usdRate;
+}
+
+function displayToUsd(amountDisplay) {
+  return amountDisplay / CURRENCIES[activeCurrency].usdRate;
+}
+
+function formatUsdMoney(amountUsd, minimumFractionDigits = 2, maximumFractionDigits = 2) {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: minimumFractionDigits,
+    maximumFractionDigits: maximumFractionDigits
+  }).format(amountUsd);
+}
+
+function formatMoney(amountUsd, options = {}) {
+  const minimumFractionDigits = options.minimumFractionDigits !== undefined ? options.minimumFractionDigits : 2;
+  const maximumFractionDigits = options.maximumFractionDigits !== undefined ? options.maximumFractionDigits : 2;
+  const amount = usdToDisplay(amountUsd);
+  const meta = CURRENCIES[activeCurrency];
+
+  return new Intl.NumberFormat(meta.locale, {
+    style: 'currency',
+    currency: meta.code,
+    minimumFractionDigits: minimumFractionDigits,
+    maximumFractionDigits: maximumFractionDigits
+  }).format(amount);
+}
+
+function formatCompactMoney(amountUsd) {
+  const meta = CURRENCIES[activeCurrency];
+  return new Intl.NumberFormat(meta.locale, {
+    style: 'currency',
+    currency: meta.code,
+    notation: 'compact',
+    maximumFractionDigits: 1
+  }).format(usdToDisplay(amountUsd));
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function escapeAttr(value) {
+  return escapeHtml(value).replace(/`/g, '&#96;');
+}
+
+// ── Navigation ──
+function getActiveNavBackground() {
+  return document.documentElement.classList.contains('dark') ? '#203a46' : '#ffbdf3';
+}
+
+function navigate(page) {
+  if (page === currentPage) {
+    if (page === 'buckets') setBucketFilter('all');
+    return;
+  }
+  document.getElementById('page-' + currentPage).classList.remove('active');
+  document.querySelectorAll('.nav-btn').forEach(b => {
+    b.style.background = '';
+    b.querySelector('.material-symbols-outlined').style.fontVariationSettings = "'FILL' 0,'wght' 700,'GRAD' 0,'opsz' 48";
+  });
+  currentPage = page;
+  document.getElementById('page-' + page).classList.add('active');
+  const activeButton = document.getElementById('nav-' + page);
+  activeButton.style.background = getActiveNavBackground();
+  activeButton.querySelector('.material-symbols-outlined').style.fontVariationSettings = "'FILL' 1,'wght' 700,'GRAD' 0,'opsz' 48";
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  document.getElementById('notif-drawer').classList.add('hidden');
+  if (page === 'buckets') setBucketFilter('all');
+}
+
+// Boot: show dash, highlight its nav button
+document.getElementById('page-dash').classList.add('active');
+document.getElementById('nav-dash').style.background = getActiveNavBackground();
+document.getElementById('nav-dash').querySelector('.material-symbols-outlined').style.fontVariationSettings = "'FILL' 1,'wght' 700,'GRAD' 0,'opsz' 48";
+
+// ── Toast ──
+function showToast(msg) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.style.opacity = '1';
+  toast.style.pointerEvents = 'auto';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.pointerEvents = 'none';
+  }, 2400);
+}
+
+function closeSettings() {
+  document.getElementById('settings-panel').style.transform = 'translateX(100%)';
+  document.getElementById('settings-overlay').classList.add('hidden');
+}
+
+function setDarkMode(enabled, options = {}) {
+  const persist = options.persist !== false;
+  const notify = options.notify === true;
+
+  document.documentElement.classList.toggle('dark', enabled);
+  document.getElementById('dark-toggle').checked = enabled;
+  document.getElementById('nav-' + currentPage).style.background = getActiveNavBackground();
+
+  if (persist) localStorage.setItem(STORAGE_KEYS.darkMode, enabled ? '1' : '0');
+  if (notify) showToast(enabled ? 'Dark mode on 🌙' : 'Light mode on ☀️');
+}
+
+function isInsideDynamicCurrencyZone(node) {
+  let parent = node.parentElement;
+  while (parent) {
+    if (DYNAMIC_CURRENCY_IDS.has(parent.id)) return true;
+    parent = parent.parentElement;
+  }
+  return false;
+}
+
+function trackMoneyTextNodes(root) {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode: function(node) {
+      if (!node.nodeValue || node.nodeValue.indexOf('$') === -1 || !/[0-9]/.test(node.nodeValue)) {
+        return NodeFilter.FILTER_REJECT;
+      }
+      if (trackedMoneyNodes.has(node)) return NodeFilter.FILTER_REJECT;
+      const parent = node.parentElement;
+      if (!parent) return NodeFilter.FILTER_REJECT;
+      if (isInsideDynamicCurrencyZone(node)) return NodeFilter.FILTER_REJECT;
+      const tag = parent.tagName;
+      if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'NOSCRIPT' || tag === 'OPTION' || tag === 'TEXTAREA') {
+        return NodeFilter.FILTER_REJECT;
+      }
+      return NodeFilter.FILTER_ACCEPT;
+    }
+  });
+
+  let node;
+  while ((node = walker.nextNode())) {
+    const original = node.nodeValue;
+    const pattern = /([+-]?)\$([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]+)?|[0-9]+(?:\.[0-9]+)?)(k?)/g;
+    const parts = [];
+    let template = '';
+    let lastIndex = 0;
+    let match;
+
+    while ((match = pattern.exec(original)) !== null) {
+      const numericString = match[2].replace(/,/g, '');
+      const numericValue = Number(numericString);
+      if (!Number.isFinite(numericValue)) continue;
+
+      const isCompact = match[3].toLowerCase() === 'k';
+      const amountUsd = isCompact ? numericValue * 1000 : numericValue;
+      const decimals = numericString.includes('.') ? numericString.split('.')[1].length : 0;
+
+      template += original.slice(lastIndex, match.index) + '__M' + parts.length + '__';
+      parts.push({
+        sign: match[1] || '',
+        amountUsd: amountUsd,
+        compact: isCompact,
+        decimals: decimals
+      });
+      lastIndex = pattern.lastIndex;
+    }
+
+    if (!parts.length) continue;
+    template += original.slice(lastIndex);
+    trackedMoneyNodes.add(node);
+    moneyTextEntries.push({ node: node, template: template, parts: parts });
+  }
+}
+
+function formatTrackedMoneyPart(part) {
+  if (part.compact) {
+    const compactAbs = formatCompactMoney(Math.abs(part.amountUsd)).replace(/^[-+]/, '');
+    if (part.sign === '-') return '-' + compactAbs;
+    if (part.sign === '+') return '+' + compactAbs;
+    return formatCompactMoney(part.amountUsd);
+  }
+
+  const decimals = part.decimals;
+  const abs = formatMoney(Math.abs(part.amountUsd), {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals
+  }).replace(/^[-+]/, '');
+
+  if (part.sign === '-') return '-' + abs;
+  if (part.sign === '+') return '+' + abs;
+  return formatMoney(part.amountUsd, {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals
+  });
+}
+
+function renderTrackedMoneyText() {
+  moneyTextEntries.forEach(entry => {
+    let rendered = entry.template;
+    entry.parts.forEach((part, index) => {
+      rendered = rendered.replace('__M' + index + '__', formatTrackedMoneyPart(part));
+    });
+    entry.node.nodeValue = rendered;
+  });
+}
+
+function getBucketProgress(bucket) {
+  if (!bucket.targetUsd) return 0;
+  return Math.max(0, Math.min(100, Math.round((bucket.savedUsd / bucket.targetUsd) * 100)));
+}
+
+function getBucketEta(bucket) {
+  const remaining = Math.max(bucket.targetUsd - bucket.savedUsd, 0);
+  if (remaining <= 0) return 'Funded';
+  if (!bucket.monthlyUsd) return 'No auto-stash';
+  const months = Math.ceil(remaining / bucket.monthlyUsd);
+  return months === 1 ? '1 month left' : months + ' months left';
+}
+
+function getFilteredBuckets() {
+  if (currentBucketFilter === 'all') return bucketData.slice();
+  return bucketData.filter(bucket => {
+    const progress = getBucketProgress(bucket);
+    if (currentBucketFilter === 'close') return progress >= 70 && progress < 100;
+    if (currentBucketFilter === 'building') return progress >= 25 && progress < 70;
+    if (currentBucketFilter === 'fresh') return bucket.isNew || progress < 25;
+    return true;
+  });
+}
+
+function renderBucketStats(visibleBuckets) {
+  const allBuckets = bucketData.slice();
+  const totalSaved = allBuckets.reduce((sum, bucket) => sum + bucket.savedUsd, 0);
+  const totalMonthly = allBuckets.reduce((sum, bucket) => sum + bucket.monthlyUsd, 0);
+  const avgProgress = allBuckets.length
+    ? Math.round(allBuckets.reduce((sum, bucket) => sum + getBucketProgress(bucket), 0) / allBuckets.length)
+    : 0;
+
+  document.getElementById('bucket-total-war-chest').textContent = formatMoney(totalSaved);
+  document.getElementById('bucket-growth-pill').textContent = avgProgress + '% funded';
+  document.getElementById('bucket-count-stat').textContent = String(allBuckets.length);
+  document.getElementById('bucket-monthly-stat').textContent = formatMoney(totalMonthly, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  document.getElementById('bucket-progress-stat').textContent = avgProgress + '%';
+
+  const captions = {
+    all: 'Showing every stash lane.',
+    close: 'Buckets that are nearly done.',
+    building: 'Buckets with healthy momentum.',
+    fresh: 'Newest goals and low-progress ideas.'
+  };
+  const caption = captions[currentBucketFilter] || captions.all;
+  document.getElementById('bucket-filter-caption').textContent = caption + ' ' + visibleBuckets.length + ' visible.';
+}
+
+function renderBuckets() {
+  const grid = document.getElementById('buckets-grid');
+  if (!grid) return;
+
+  const visibleBuckets = getFilteredBuckets();
+  renderBucketStats(visibleBuckets);
+
+  const cards = visibleBuckets.map(bucket => {
+    const theme = BUCKET_THEMES[bucket.theme] || BUCKET_THEMES.primary;
+    const progress = getBucketProgress(bucket);
+    const remainingUsd = Math.max(bucket.targetUsd - bucket.savedUsd, 0);
+    const title = escapeHtml(bucket.name);
+    const subtitle = escapeHtml(bucket.subtitle);
+    const eta = escapeHtml(getBucketEta(bucket));
+    const featuredClass = bucket.featured ? 'md:col-span-2' : '';
+
+    return `
+      <div class="${featuredClass} ${theme.card} border-4 border-inverse-surface p-6 hard-shadow interactive-lift flex flex-col h-full cursor-pointer group">
+        <div class="flex ${bucket.featured ? 'flex-col md:flex-row items-center gap-6' : 'justify-between items-start mb-6'}">
+          <div class="${bucket.featured ? 'shrink-0' : ''}">
+            <div class="${theme.iconWrap} border-2 border-inverse-surface p-3 ${bucket.featured ? 'md:p-5 -rotate-2' : 'rotate-[3deg]'} group-hover:rotate-0 transition-transform">
+              <span class="material-symbols-outlined ${bucket.featured ? 'text-6xl' : 'text-4xl'}" style="font-variation-settings:'FILL' 1;">${escapeHtml(bucket.icon)}</span>
+            </div>
+          </div>
+          <div class="${bucket.featured ? 'flex-1 w-full' : 'hidden'}">
+            <div class="flex justify-between items-end mb-4 flex-wrap gap-2">
+              <div>
+                <h3 class="font-headline text-4xl font-black uppercase tracking-tighter">${title}</h3>
+                <p class="font-body font-extrabold">${subtitle}</p>
+              </div>
+              <span class="font-headline text-5xl font-black">${progress}%</span>
+            </div>
+            <div class="w-full h-16 border-4 border-inverse-surface ${theme.surface} overflow-hidden flex">
+              <div class="h-full ${theme.fill} border-r-4 border-inverse-surface" style="width:${progress}%"></div>
+            </div>
+            <div class="flex justify-between mt-3 font-headline font-bold uppercase italic flex-wrap gap-2">
+              <span>${formatMoney(bucket.savedUsd)} / ${formatMoney(bucket.targetUsd)}</span>
+              <span class="${theme.accent}">${eta}</span>
+            </div>
+          </div>
+          <span class="${bucket.featured ? 'hidden' : 'font-headline font-black text-2xl'}">${progress}%</span>
+        </div>
+        <div class="${bucket.featured ? 'hidden' : 'flex-1 flex flex-col'}">
+          <h3 class="font-headline text-3xl font-black mb-2 uppercase tracking-tight">${title}</h3>
+          <p class="font-body font-bold text-on-surface-variant mb-6 text-sm">${subtitle}</p>
+          <div class="mt-auto">
+            <div class="flex items-center justify-between mb-2 text-[11px] font-black uppercase tracking-wide">
+              <span>Target ${formatMoney(bucket.targetUsd)}</span>
+              <span>${eta}</span>
+            </div>
+            <div class="w-full h-12 border-4 border-inverse-surface ${theme.surface} overflow-hidden flex">
+              <div class="h-full ${theme.fill} border-r-4 border-inverse-surface" style="width:${progress}%"></div>
+            </div>
+            <div class="flex justify-between mt-3 gap-3 flex-wrap">
+              <span class="font-headline font-bold text-sm">${formatMoney(bucket.savedUsd)} saved</span>
+              <span class="font-headline font-bold text-sm text-on-surface-variant">${formatMoney(remainingUsd)} left</span>
+            </div>
+            <div class="mt-3 flex items-center justify-between text-[11px] font-black uppercase tracking-wide">
+              <span>Auto-stash ${formatMoney(bucket.monthlyUsd, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}/mo</span>
+              <span class="${theme.accent}">${bucket.isNew ? 'New' : 'Active'}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  grid.innerHTML = cards + `
+    <button type="button" onclick="createBucket()" class="bg-surface-container-highest border-4 border-dashed border-inverse-surface p-6 flex flex-col h-full opacity-80 hover:opacity-100 transition-opacity cursor-pointer text-left">
+      <div class="flex flex-col items-center justify-center flex-1 py-8 text-on-surface-variant">
+        <span class="material-symbols-outlined text-5xl mb-4">add_circle</span>
+        <p class="font-headline font-black text-xl uppercase tracking-tighter">Add Another Bucket</p>
+        <div class="mt-4 bg-inverse-surface text-white px-6 py-2 font-headline font-bold uppercase">Start Now</div>
+      </div>
+    </button>
+  `;
+}
+
+function setBucketFilter(filter) {
+  currentBucketFilter = ['all', 'close', 'building', 'fresh'].includes(filter) ? filter : 'all';
+  document.querySelectorAll('.bucket-filter-btn').forEach(button => {
+    button.classList.toggle('active', button.dataset.filter === currentBucketFilter);
+  });
+  renderBuckets();
+}
+
+function renderIntelDeepDive(bar) {
+  if (!bar) return;
+  document.getElementById('intel-deep-dive-title').textContent = 'Deep Dive: ' + bar.label;
+  document.getElementById('intel-deep-dive-amount').textContent = formatMoney(bar.amount);
+  document.getElementById('intel-deep-dive-summary').textContent = bar.summary;
+  document.getElementById('intel-hover-detail').textContent = bar.label.toUpperCase() + ' now in focus.';
+  document.getElementById('intel-deep-dive-items').innerHTML = bar.items.map(item => `
+    <div class="border-2 border-inverse-surface p-3 flex justify-between items-center hard-shadow-sm interactive-soft cursor-pointer">
+      <div class="flex items-center gap-3">
+        <span class="material-symbols-outlined text-secondary">${escapeHtml(item.icon)}</span>
+        <span class="font-bold text-sm uppercase">${escapeHtml(item.label)}</span>
+      </div>
+      <span class="font-black">${formatMoney(item.amountUsd)}</span>
+    </div>
+  `).join('');
+}
+
+function bindIntelBarInteractions() {
+  for (let i = 1; i <= 4; i += 1) {
+    const barEl = document.getElementById('intel-bar-' + i);
+    if (!barEl || barEl.dataset.bound === '1') continue;
+    barEl.dataset.bound = '1';
+    barEl.tabIndex = 0;
+    barEl.setAttribute('role', 'button');
+
+    const activate = () => {
+      currentIntelFocusIndex = i - 1;
+      renderIntel(currentIntelTab);
+    };
+
+    barEl.addEventListener('mouseenter', activate);
+    barEl.addEventListener('focus', activate);
+    barEl.addEventListener('click', activate);
+  }
+}
+
+function renderIntel(tab) {
+  const snapshot = intelSnapshots[tab] || intelSnapshots.month;
+  const focusIndex = snapshot.bars[currentIntelFocusIndex] ? currentIntelFocusIndex : 0;
+  currentIntelFocusIndex = focusIndex;
+
+  document.getElementById('intel-total-damage').textContent = 'TOTAL DAMAGE: ' + formatMoney(snapshot.totalDamage);
+  document.getElementById('intel-net-worth').textContent = formatMoney(snapshot.netWorth);
+  document.getElementById('intel-daily-burn').textContent = formatMoney(snapshot.dailyBurnUsd);
+  document.getElementById('intel-runway').textContent = snapshot.runwayLabel;
+  document.getElementById('intel-rebound').textContent = formatMoney(snapshot.reboundUsd, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  document.getElementById('intel-vibe-title').textContent = snapshot.vibeTitle;
+  document.getElementById('intel-vibe-copy').textContent = snapshot.vibeCopy;
+  document.getElementById('intel-vibe-button').textContent = snapshot.vibeButton;
+  document.getElementById('intel-vibe-button').onclick = function() {
+    showToast(snapshot.vibeButton + ' queued.');
+  };
+  document.getElementById('intel-hero-badge').textContent = snapshot.heroBadge;
+  document.getElementById('intel-hero-title').textContent = snapshot.heroTitle;
+  document.getElementById('intel-hero-copy').textContent = snapshot.heroCopy.replace('__A__', formatMoney(snapshot.heroAmountUsd, { minimumFractionDigits: 0, maximumFractionDigits: 0 }));
+
+  document.getElementById('intel-opportunity-cards').innerHTML = snapshot.opportunities.map(card => `
+    <div class="${card.tone} border-4 border-inverse-surface p-4 hard-shadow interactive-lift">
+      <div class="flex items-start gap-3">
+        <span class="material-symbols-outlined text-3xl">${escapeHtml(card.icon)}</span>
+        <div>
+          <p class="text-[10px] font-black uppercase tracking-[0.2em] opacity-70">${escapeHtml(card.title)}</p>
+          <p class="font-bold text-sm mt-2">${escapeHtml(card.copy)} ${formatMoney(card.amountUsd, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
+        </div>
+      </div>
+    </div>
+  `).join('');
+
+  snapshot.bars.forEach((bar, index) => {
+    const i = index + 1;
+    const barEl = document.getElementById('intel-bar-' + i);
+    barEl.style.height = bar.height + '%';
+    barEl.querySelector('span').textContent = formatCompactMoney(bar.amount);
+    document.getElementById('intel-bar-' + i + '-label').textContent = bar.label;
+    barEl.classList.toggle('intel-bar-active', index === focusIndex);
+    barEl.classList.toggle('hard-shadow-sm', index === focusIndex);
+  });
+
+  renderIntelDeepDive(snapshot.bars[focusIndex]);
+  bindIntelBarInteractions();
+}
+
+let liquidityBalanceUsd = parseNumericInput(document.getElementById('total-liquidity-value').textContent || '0');
+
+function renderCurrencySensitiveUI() {
+  document.getElementById('total-liquidity-value').textContent = formatMoney(liquidityBalanceUsd);
+  renderBuckets();
+  renderIntel(currentIntelTab);
+  renderTrackedMoneyText();
+}
+
+function setCurrency(currencyCode, options = {}) {
+  const persist = options.persist !== false;
+  const notify = options.notify === true;
+
+  if (!CURRENCIES[currencyCode]) currencyCode = 'USD';
+  activeCurrency = currencyCode;
+  document.getElementById('currency-select').value = currencyCode;
+
+  renderCurrencySensitiveUI();
+
+  if (persist) localStorage.setItem(STORAGE_KEYS.currency, currencyCode);
+  if (notify) showToast('Currency changed to ' + CURRENCIES[currencyCode].label + ' 💱');
+}
+
+function isActionModalOpen() {
+  return document.getElementById('action-modal').classList.contains('open');
+}
+
+function closeActionModal() {
+  document.getElementById('action-modal').classList.remove('open');
+  document.getElementById('action-modal-overlay').classList.remove('open');
+  document.body.classList.remove('overflow-hidden');
+  document.getElementById('action-modal-form').innerHTML = '';
+  modalState.submitHandler = null;
+}
+
+function openActionModal(config) {
+  const title = document.getElementById('action-modal-title');
+  const subtitle = document.getElementById('action-modal-subtitle');
+  const form = document.getElementById('action-modal-form');
+  const submitButton = document.getElementById('action-modal-submit');
+
+  title.textContent = config.title || 'Action';
+  subtitle.textContent = config.subtitle || '';
+  submitButton.textContent = config.submitLabel || 'Confirm';
+
+  const fields = Array.isArray(config.fields) ? config.fields : [];
+  form.innerHTML = fields.map(field => {
+    const type = field.type || 'text';
+    const hint = field.hint ? '<p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wide mt-1">' + escapeHtml(field.hint) + '</p>' : '';
+    const required = field.required ? ' required' : '';
+
+    let control = '';
+    if (type === 'select') {
+      const options = Array.isArray(field.options) ? field.options : [];
+      control = '<select name="' + escapeAttr(field.name) + '"' + required +
+        ' class="mt-2 w-full border-2 border-inverse-surface bg-white px-3 py-3 font-bold text-sm hard-shadow-sm focus:outline-none focus:ring-2 focus:ring-secondary">' +
+        options.map(option => {
+          const selected = option.value === field.value ? ' selected' : '';
+          return '<option value="' + escapeAttr(option.value) + '"' + selected + '>' + escapeHtml(option.label) + '</option>';
+        }).join('') +
+      '</select>';
+    } else {
+      const step = field.step !== undefined ? ' step="' + escapeAttr(field.step) + '"' : '';
+      const min = field.min !== undefined ? ' min="' + escapeAttr(field.min) + '"' : '';
+      const max = field.max !== undefined ? ' max="' + escapeAttr(field.max) + '"' : '';
+      const value = field.value !== undefined ? ' value="' + escapeAttr(field.value) + '"' : '';
+      const placeholder = field.placeholder ? ' placeholder="' + escapeAttr(field.placeholder) + '"' : '';
+      const inputmode = field.inputmode ? ' inputmode="' + escapeAttr(field.inputmode) + '"' : '';
+      control = '<input name="' + escapeAttr(field.name) + '" type="' + escapeAttr(type) + '"' + value + placeholder + step + min + max + inputmode + required +
+        ' class="mt-2 w-full border-2 border-inverse-surface bg-white px-3 py-3 font-bold text-sm hard-shadow-sm focus:outline-none focus:ring-2 focus:ring-secondary"/>';
+    }
+
+    return (
+      '<label class="block">' +
+        '<span class="font-headline font-black text-xs uppercase tracking-widest text-on-surface-variant">' + escapeHtml(field.label) + '</span>' +
+        control +
+        hint +
+      '</label>'
+    );
+  }).join('');
+
+  modalState.submitHandler = typeof config.onSubmit === 'function' ? config.onSubmit : null;
+
+  document.getElementById('action-modal').classList.add('open');
+  document.getElementById('action-modal-overlay').classList.add('open');
+  document.body.classList.add('overflow-hidden');
+
+  const firstInput = form.querySelector('input, select, textarea');
+  if (firstInput) firstInput.focus();
+}
+
+function loadUpBalance() {
+  const defaultAmount = usdToDisplay(250).toFixed(2);
+  openActionModal({
+    title: 'Load Up Wallet',
+    subtitle: 'Add funds to your stash instantly.',
+    submitLabel: 'Load Up',
+    fields: [
+      {
+        name: 'amount',
+        label: 'Amount (' + activeCurrency + ')',
+        type: 'number',
+        step: '0.01',
+        min: '0.01',
+        placeholder: '0.00',
+        value: defaultAmount,
+        inputmode: 'decimal',
+        required: true
+      }
+    ],
+    onSubmit: values => {
+      const amountDisplay = Number(values.amount);
+      if (!Number.isFinite(amountDisplay) || amountDisplay <= 0) {
+        showToast('Enter a valid amount above 0.');
+        return false;
+      }
+
+      const amountUsd = displayToUsd(amountDisplay);
+      liquidityBalanceUsd += amountUsd;
+      document.getElementById('total-liquidity-value').textContent = formatMoney(liquidityBalanceUsd);
+      showToast('Loaded ' + formatMoney(amountUsd) + ' successfully ✅');
+      return true;
+    }
+  });
+}
+
+function createBucket() {
+  const defaultTarget = usdToDisplay(1200).toFixed(2);
+  openActionModal({
+    title: 'Create New Bucket',
+    subtitle: 'Build a goal and track it from day one.',
+    submitLabel: 'Create Bucket',
+    fields: [
+      {
+        name: 'name',
+        label: 'Bucket Name',
+        type: 'text',
+        placeholder: 'Weekend Escape',
+        value: 'Weekend Escape',
+        required: true
+      },
+      {
+        name: 'target',
+        label: 'Target (' + activeCurrency + ')',
+        type: 'number',
+        step: '0.01',
+        min: '0.01',
+        placeholder: '0.00',
+        value: defaultTarget,
+        inputmode: 'decimal',
+        required: true
+      },
+      {
+        name: 'saved',
+        label: 'Starting Amount (' + activeCurrency + ')',
+        type: 'number',
+        step: '0.01',
+        min: '0',
+        placeholder: '0.00',
+        value: '0',
+        inputmode: 'decimal',
+        required: true
+      },
+      {
+        name: 'theme',
+        label: 'Bucket Style',
+        type: 'select',
+        value: 'primary',
+        options: [
+          { value: 'primary', label: 'Energy Lime' },
+          { value: 'secondary', label: 'Soft Punch' },
+          { value: 'tertiary', label: 'Sky Mode' },
+          { value: 'neutral', label: 'Classic Mono' }
+        ]
+      },
+      {
+        name: 'monthly',
+        label: 'Monthly Auto-Stash (' + activeCurrency + ')',
+        type: 'number',
+        step: '1',
+        min: '0',
+        placeholder: '0',
+        value: usdToDisplay(60).toFixed(0),
+        inputmode: 'numeric',
+        required: true
+      }
+    ],
+    onSubmit: values => {
+      const name = (values.name || '').trim();
+      if (!name) {
+        showToast('Bucket name cannot be empty.');
+        return false;
+      }
+
+      const targetDisplay = Number(values.target);
+      const savedDisplay = Number(values.saved);
+      const monthlyDisplay = Number(values.monthly);
+      if (!Number.isFinite(targetDisplay) || targetDisplay <= 0) {
+        showToast('Please enter a valid target amount.');
+        return false;
+      }
+      if (!Number.isFinite(savedDisplay) || savedDisplay < 0) {
+        showToast('Please enter a valid starting amount.');
+        return false;
+      }
+      if (!Number.isFinite(monthlyDisplay) || monthlyDisplay < 0) {
+        showToast('Please enter a valid monthly auto-stash.');
+        return false;
+      }
+
+      const targetUsd = displayToUsd(targetDisplay);
+      const savedUsd = Math.min(displayToUsd(savedDisplay), targetUsd);
+      const monthlyUsd = displayToUsd(monthlyDisplay);
+
+      bucketData.unshift({
+        id: 'bucket-' + Date.now(),
+        name: name,
+        subtitle: 'Fresh goal. Clean slate. Lock in.',
+        targetUsd: targetUsd,
+        savedUsd: savedUsd,
+        monthlyUsd: monthlyUsd,
+        icon: 'savings',
+        theme: BUCKET_THEMES[values.theme] ? values.theme : 'primary',
+        featured: false,
+        isNew: true
+      });
+
+      setBucketFilter('all');
+      renderCurrencySensitiveUI();
+      showToast(name + ' bucket added.');
+      return true;
+    }
+  });
+}
+
+// ── Notifications ──
+function quickBucketBoost() {
+  if (!bucketData.length) return;
+  const targetBucket = bucketData
+    .slice()
+    .sort((a, b) => getBucketProgress(a) - getBucketProgress(b))[0];
+  const boostUsd = 25;
+  targetBucket.savedUsd = Math.min(targetBucket.targetUsd, targetBucket.savedUsd + boostUsd);
+  renderCurrencySensitiveUI();
+  showToast('Boosted ' + targetBucket.name + ' by ' + formatMoney(boostUsd, { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + '.');
+}
+
+document.getElementById('notif-btn').addEventListener('click', e => {
+  e.stopPropagation();
+  document.getElementById('notif-drawer').classList.toggle('hidden');
+});
+document.getElementById('notif-close').addEventListener('click', () => {
+  document.getElementById('notif-drawer').classList.add('hidden');
+  document.getElementById('notif-btn').classList.remove('notif-badge');
+  showToast('All cleared ✅');
+});
+document.addEventListener('click', e => {
+  if (!e.target.closest('#notif-drawer') && !e.target.closest('#notif-btn')) {
+    document.getElementById('notif-drawer').classList.add('hidden');
+  }
+});
+
+// ── Settings ──
+document.getElementById('settings-btn').addEventListener('click', () => {
+  document.getElementById('settings-panel').style.transform = 'translateX(0)';
+  document.getElementById('settings-overlay').classList.remove('hidden');
+});
+document.getElementById('settings-close').addEventListener('click', closeSettings);
+document.getElementById('settings-overlay').addEventListener('click', closeSettings);
+document.getElementById('dark-toggle').addEventListener('change', function() {
+  setDarkMode(this.checked, { notify: true });
+});
+document.getElementById('currency-select').addEventListener('change', function() {
+  setCurrency(this.value, { notify: true });
+});
+
+// ── Action modal events ──
+document.getElementById('action-modal-close').addEventListener('click', closeActionModal);
+document.getElementById('action-modal-cancel').addEventListener('click', closeActionModal);
+document.getElementById('action-modal-overlay').addEventListener('click', closeActionModal);
+document.getElementById('action-modal-form').addEventListener('submit', function(e) {
+  e.preventDefault();
+  if (!modalState.submitHandler) return closeActionModal();
+
+  const values = Object.fromEntries(new FormData(e.target).entries());
+  const shouldClose = modalState.submitHandler(values);
+  if (shouldClose !== false) closeActionModal();
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if (isActionModalOpen()) closeActionModal();
+});
+
+// ── Like button ──
+function likePost(btn) {
+  const countEl = btn.querySelector('.count');
+  const icon = btn.querySelector('.material-symbols-outlined');
+  const liked = btn.dataset.liked === 'true';
+  countEl.textContent = parseInt(countEl.textContent, 10) + (liked ? -1 : 1);
+  icon.style.fontVariationSettings = liked
+    ? "'FILL' 0,'wght' 700,'GRAD' 0,'opsz' 48"
+    : "'FILL' 1,'wght' 700,'GRAD' 0,'opsz' 48";
+  btn.style.background = liked ? '' : '#ffbdf3';
+  btn.dataset.liked = liked ? 'false' : 'true';
+  if (!liked) showToast('❤️ Liked!');
+}
+
+// ── Intel tab ──
+function switchIntelTab(tab) {
+  currentIntelTab = tab === 'history' ? 'history' : 'month';
+  const on = 'cursor-pointer bg-secondary text-on-secondary px-3 py-1 text-sm font-bold border-2 border-inverse-surface hard-shadow-sm uppercase';
+  const off = 'cursor-pointer bg-surface-container border-2 border-inverse-surface px-3 py-1 text-sm font-bold uppercase hover:bg-surface-container-high transition-colors';
+  document.getElementById('intel-month').className = currentIntelTab === 'month' ? on : off;
+  document.getElementById('intel-history').className = currentIntelTab === 'history' ? on : off;
+  renderIntel(currentIntelTab);
+  showToast(currentIntelTab === 'history' ? 'Showing historical trends 📊' : 'Back to this month ✅');
+}
+
+// ── Init ──
+trackMoneyTextNodes(document.body);
+setDarkMode(localStorage.getItem(STORAGE_KEYS.darkMode) === '1', { persist: false });
+setCurrency(localStorage.getItem(STORAGE_KEYS.currency) || 'USD', { persist: false });
+</script>
+</body>
+</html>
+

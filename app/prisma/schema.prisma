@@ -1,0 +1,130 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum TransactionType {
+  EXPENSE
+  INCOME
+}
+
+enum TransactionCategory {
+  FOOD
+  DRIP
+  ENTERTAINMENT
+  TRANSPORT
+  BILLS
+  COFFEE
+  SAVINGS
+  INCOME
+  OTHER
+}
+
+enum BucketTheme {
+  PRIMARY
+  SECONDARY
+  TERTIARY
+  NEUTRAL
+}
+
+enum NotificationType {
+  BUCKET_MILESTONE
+  BUDGET_ALERT
+  PAYDAY
+  GENERAL
+}
+
+enum Currency {
+  USD
+  EUR
+  INR
+  GBP
+}
+
+// ─── Models ──────────────────────────────────────────────────────────────────
+
+model User {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  passwordHash String?
+  name        String
+  initials    String   @db.VarChar(4)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  transactions  Transaction[]
+  buckets       Bucket[]
+  notifications Notification[]
+  settings      Settings?
+}
+
+model Transaction {
+  id          String              @id @default(cuid())
+  userId      String
+  merchant    String
+  amount      Float               // always stored in USD
+  type        TransactionType
+  category    TransactionCategory
+  note        String?
+  aiInsight   String?
+  tags        String[]
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, category])
+}
+
+model Bucket {
+  id          String      @id @default(cuid())
+  userId      String
+  name        String
+  subtitle    String
+  targetUsd   Float
+  savedUsd    Float       @default(0)
+  monthlyUsd  Float       @default(0)
+  icon        String
+  theme       BucketTheme @default(PRIMARY)
+  isFeatured  Boolean     @default(false)
+  isNew       Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  body      String
+  isRead    Boolean          @default(false)
+  link      String?          // e.g. "buckets"
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+}
+
+model Settings {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  darkMode     Boolean  @default(false)
+  currency     Currency @default(USD)
+  pushNotifs   Boolean  @default(true)
+  budgetAlerts Boolean  @default(true)
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
