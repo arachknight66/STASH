@@ -2,7 +2,14 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { AUTH_COOKIE, verifyToken } from './lib/auth';
 
-const publicRoutes = ['/login', '/api/auth/login', '/api/auth/register'];
+const publicRoutes = [
+  '/login',
+  '/api/auth/login',
+  '/api/auth/register',
+  '/api/auth/oauth/google',
+  '/api/auth/oauth/microsoft',
+  '/api/auth/oauth/callback',
+];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
