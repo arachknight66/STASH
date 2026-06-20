@@ -8,8 +8,7 @@ import {
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
   signInWithPopup, 
-  GoogleAuthProvider, 
-  OAuthProvider 
+  GoogleAuthProvider 
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase-client';
 
@@ -18,7 +17,7 @@ export default function LoginPage() {
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
 
-  async function handleSocialLogin(providerName: 'google' | 'microsoft') {
+  async function handleGoogleLogin() {
     setLoading(true);
     try {
       const isMock = 
@@ -28,11 +27,9 @@ export default function LoginPage() {
       let idToken = '';
       if (isMock) {
         // Fall back to sandbox flow if credentials are not configured
-        idToken = `sandbox_${providerName}_user`;
+        idToken = 'sandbox_google_user';
       } else {
-        const provider = providerName === 'google' 
-          ? new GoogleAuthProvider() 
-          : new OAuthProvider('microsoft.com');
+        const provider = new GoogleAuthProvider();
         const result = await signInWithPopup(auth, provider);
         idToken = await result.user.getIdToken();
       }
@@ -51,8 +48,8 @@ export default function LoginPage() {
         showToast(data.error || 'Authentication failed');
       }
     } catch (e: any) {
-      console.error('Social Login Error:', e);
-      showToast(e.message || 'OAuth authentication failed');
+      console.error('Google Login Error:', e);
+      showToast(e.message || 'Google authentication failed');
     } finally {
       setLoading(false);
     }
@@ -139,7 +136,7 @@ export default function LoginPage() {
         {/* Social Auth Buttons */}
         <div className="flex flex-col gap-3 mb-6">
           <button
-            onClick={() => handleSocialLogin('google')}
+            onClick={handleGoogleLogin}
             disabled={loading}
             className="w-full flex items-center justify-center gap-3 border-4 border-inverse-surface py-3 font-headline font-black text-sm uppercase bg-white hard-shadow hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all cursor-pointer disabled:opacity-50"
           >
@@ -150,19 +147,6 @@ export default function LoginPage() {
               <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
             </svg>
             Continue with Google
-          </button>
-          <button
-            onClick={() => handleSocialLogin('microsoft')}
-            disabled={loading}
-            className="w-full flex items-center justify-center gap-3 border-4 border-inverse-surface py-3 font-headline font-black text-sm uppercase bg-[#f3f3f3] hard-shadow hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all cursor-pointer disabled:opacity-50"
-          >
-            <svg className="w-5 h-5" viewBox="0 0 23 23" aria-hidden="true">
-              <path fill="#f25022" d="M0 0h11v11H0z"/>
-              <path fill="#7fba00" d="M12 0h11v11H12z"/>
-              <path fill="#00a4ef" d="M0 12h11v11H0z"/>
-              <path fill="#ffb900" d="M12 12h11v11H12z"/>
-            </svg>
-            Continue with Microsoft
           </button>
         </div>
 
