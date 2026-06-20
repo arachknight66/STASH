@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { Transaction } from '@prisma/client';
+import type { Transaction, Bucket, Notification, Settings } from '@/lib/types';
 import type { CreateTransactionInput } from '@/lib/schemas';
 import { useAppStore } from '@/store/app';
 
@@ -161,7 +161,7 @@ export function useDeleteTransaction() {
 
 // ─── Buckets ──────────────────────────────────────────────────────────────────
 
-import type { Bucket } from '@prisma/client';
+// Type imported from unified types above
 import type { CreateBucketInput, UpdateBucketInput } from '@/lib/schemas';
 
 export function useBuckets() {
@@ -326,7 +326,7 @@ export function useIntel() {
 
 // ─── Notifications ────────────────────────────────────────────────────────────
 
-import type { Notification } from '@prisma/client';
+// Type imported from unified types above
 
 export function useNotifications() {
   return useQuery({
@@ -357,7 +357,7 @@ export function useClearNotifications() {
 
 // ─── Settings ─────────────────────────────────────────────────────────────────
 
-import type { Settings } from '@prisma/client';
+// Type imported from unified types above
 import type { UpdateSettingsInput } from '@/lib/schemas';
 
 export function useSettings() {

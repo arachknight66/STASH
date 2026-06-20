@@ -6,7 +6,7 @@ import { useBuckets, useCreateBucket, useBoostBucket, useDeleteBucket } from '@/
 import { formatMoney, displayToUsd } from '@/lib/currencies';
 import { BUCKET_THEME_CLASSES } from '@/lib/constants';
 import ActionModal from '@/components/ui/ActionModal';
-import type { Bucket } from '@prisma/client';
+import type { Bucket } from '@/lib/types';
 import { motion } from 'framer-motion';
 
 const containerVariants = {

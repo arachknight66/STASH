@@ -1,33 +1,43 @@
-import { prisma } from '@/lib/prisma';
+import { db } from '@/lib/firebase-admin';
 import type { UpdateSettingsInput } from '@/lib/schemas';
-import type { Currency } from '@prisma/client';
+import { Currency } from '@/lib/types';
 
 export async function getSettings(userId: string) {
-  return prisma.settings.findUnique({ 
-    where: { userId },
-    include: {
-      user: {
-        select: { name: true, email: true, initials: true }
-      }
-    }
-  });
+  const settingsSnap = await db.collection('settings').doc(userId).get();
+  if (!settingsSnap.exists) {
+    return null;
+  }
+
+  const userSnap = await db.collection('users').doc(userId).get();
+  const userData = userSnap.exists ? userSnap.data() : null;
+
+  return {
+    id: settingsSnap.id,
+    userId,
+    ...settingsSnap.data(),
+    user: userData
+      ? {
+          name: userData.name,
+          email: userData.email,
+          initials: userData.initials,
+        }
+      : null,
+  };
 }
 
 export async function upsertSettings(userId: string, input: UpdateSettingsInput) {
-  return prisma.settings.upsert({
-    where: { userId },
-    create: {
-      userId,
-      darkMode:     input.darkMode     ?? false,
-      currency:     (input.currency    ?? 'USD') as Currency,
-      pushNotifs:   input.pushNotifs   ?? true,
-      budgetAlerts: input.budgetAlerts ?? true,
-    },
-    update: {
-      ...(input.darkMode     !== undefined && { darkMode:     input.darkMode }),
-      ...(input.currency     !== undefined && { currency:     input.currency as Currency }),
-      ...(input.pushNotifs   !== undefined && { pushNotifs:   input.pushNotifs }),
-      ...(input.budgetAlerts !== undefined && { budgetAlerts: input.budgetAlerts }),
-    },
-  });
+  const settingsRef = db.collection('settings').doc(userId);
+  const snap = await settingsRef.get();
+
+  const data = {
+    userId,
+    darkMode:     input.darkMode     !== undefined ? input.darkMode     : (snap.data()?.darkMode ?? false),
+    currency:     input.currency     !== undefined ? input.currency     : (snap.data()?.currency ?? Currency.USD),
+    pushNotifs:   input.pushNotifs   !== undefined ? input.pushNotifs   : (snap.data()?.pushNotifs ?? true),
+    budgetAlerts: input.budgetAlerts !== undefined ? input.budgetAlerts : (snap.data()?.budgetAlerts ?? true),
+    updatedAt:    new Date().toISOString(),
+  };
+
+  await settingsRef.set(data);
+  return data;
 }

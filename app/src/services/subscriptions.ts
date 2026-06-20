@@ -1,49 +1,100 @@
-import { prisma } from '@/lib/prisma';
+import { db } from '@/lib/firebase-admin';
 import type { CreateSubscriptionInput, UpdateSubscriptionInput } from '@/lib/schemas';
-import { BillingCycle, SubscriptionStatus } from '@prisma/client';
+import { BillingCycle, SubscriptionStatus, Currency, Subscription, Transaction } from '@/lib/types';
 
-export async function getSubscriptions(userId: string) {
-  return prisma.subscription.findMany({
-    where: { userId, status: { not: SubscriptionStatus.CANCELED } },
-    orderBy: { nextBillingDate: 'asc' },
+export async function getSubscriptions(userId: string): Promise<Subscription[]> {
+  const snap = await db.collection('subscriptions')
+    .where('userId', '==', userId)
+    .where('status', '!=', SubscriptionStatus.CANCELED)
+    .get();
+
+  const subs: Subscription[] = [];
+  snap.forEach((doc: any) => {
+    const data = doc.data();
+    subs.push({
+      ...data,
+      nextBillingDate: new Date(data.nextBillingDate),
+      lastChargedAt: data.lastChargedAt ? new Date(data.lastChargedAt) : null,
+      createdAt: new Date(data.createdAt),
+      updatedAt: new Date(data.updatedAt),
+    } as Subscription);
   });
+
+  // Sort by nextBillingDate ascending
+  return subs.sort((a, b) => a.nextBillingDate.getTime() - b.nextBillingDate.getTime());
 }
 
-export async function createSubscription(userId: string, input: CreateSubscriptionInput) {
-  return prisma.subscription.create({
-    data: {
-      userId,
-      name:            input.name,
-      provider:        input.provider,
-      category:        input.category,
-      amount:          input.amount,
-      billingCycle:    input.billingCycle as BillingCycle,
-      nextBillingDate: new Date(input.nextBillingDate),
-      accountId:       input.accountId,
-      autopay:         input.autopay,
-      notes:           input.notes,
-      icon:            input.icon,
-      colorTheme:      input.colorTheme,
-    },
-  });
+export async function createSubscription(userId: string, input: CreateSubscriptionInput): Promise<Subscription> {
+  const ref = db.collection('subscriptions').doc();
+  const now = new Date().toISOString();
+
+  const data = {
+    id:                ref.id,
+    userId,
+    name:              input.name,
+    provider:          input.provider,
+    category:          input.category,
+    amount:            input.amount,
+    currency:          Currency.USD,
+    billingCycle:      input.billingCycle as BillingCycle,
+    nextBillingDate:   new Date(input.nextBillingDate).toISOString(),
+    lastChargedAt:     null,
+    status:            SubscriptionStatus.ACTIVE,
+    autopay:           input.autopay,
+    accountId:         input.accountId || null,
+    notes:             input.notes || null,
+    icon:              input.icon || null,
+    colorTheme:        input.colorTheme || null,
+    merchantMatchRule: input.provider, // Rule matching merchant name
+    createdAt:         now,
+    updatedAt:         now,
+  };
+
+  await ref.set(data);
+
+  return {
+    ...data,
+    nextBillingDate: new Date(data.nextBillingDate),
+    createdAt: new Date(now),
+    updatedAt: new Date(now),
+  } as Subscription;
 }
 
-export async function updateSubscription(userId: string, id: string, input: UpdateSubscriptionInput) {
-  return prisma.subscription.update({
-    where: { id, userId },
-    data: {
-      ...input,
-      nextBillingDate: input.nextBillingDate ? new Date(input.nextBillingDate) : undefined,
-      status: input.status as SubscriptionStatus | undefined,
-    },
-  });
+export async function updateSubscription(userId: string, id: string, input: UpdateSubscriptionInput): Promise<Subscription> {
+  const ref = db.collection('subscriptions').doc(id);
+  const snap = await ref.get();
+
+  if (!snap.exists || snap.data().userId !== userId) {
+    throw new Error('Subscription not found');
+  }
+
+  const now = new Date().toISOString();
+  const updateData: any = {
+    ...input,
+    updatedAt: now,
+  };
+
+  if (input.nextBillingDate) {
+    updateData.nextBillingDate = new Date(input.nextBillingDate).toISOString();
+  }
+
+  await ref.update(updateData);
+  const updated = {
+    ...snap.data(),
+    ...updateData,
+  };
+
+  return {
+    ...updated,
+    nextBillingDate: new Date(updated.nextBillingDate),
+    lastChargedAt: updated.lastChargedAt ? new Date(updated.lastChargedAt) : null,
+    createdAt: new Date(updated.createdAt),
+    updatedAt: new Date(updated.updatedAt),
+  } as Subscription;
 }
 
-export async function deleteSubscription(userId: string, id: string) {
-  return prisma.subscription.update({
-    where: { id, userId },
-    data: { status: SubscriptionStatus.CANCELED },
-  });
+export async function deleteSubscription(userId: string, id: string): Promise<Subscription> {
+  return updateSubscription(userId, id, { status: SubscriptionStatus.CANCELED });
 }
 
 /** Monthly cost in USD for a subscription */
@@ -58,8 +109,21 @@ function monthlyAmount(amount: number, cycle: BillingCycle): number {
 }
 
 export async function getSubscriptionBurden(userId: string) {
-  const subs = await prisma.subscription.findMany({
-    where: { userId, status: SubscriptionStatus.ACTIVE },
+  const snap = await db.collection('subscriptions')
+    .where('userId', '==', userId)
+    .where('status', '==', SubscriptionStatus.ACTIVE)
+    .get();
+
+  const subs: Subscription[] = [];
+  snap.forEach((doc: any) => {
+    const data = doc.data();
+    subs.push({
+      ...data,
+      nextBillingDate: new Date(data.nextBillingDate),
+      lastChargedAt: data.lastChargedAt ? new Date(data.lastChargedAt) : null,
+      createdAt: new Date(data.createdAt),
+      updatedAt: new Date(data.updatedAt),
+    } as Subscription);
   });
 
   const monthlyTotal = subs.reduce((sum, s) => sum + monthlyAmount(s.amount, s.billingCycle), 0);
@@ -67,11 +131,21 @@ export async function getSubscriptionBurden(userId: string) {
 
   // Get last 30 days income to compute burden %
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-  const incomeResult = await prisma.transaction.aggregate({
-    where: { userId, type: 'INCOME', occurredAt: { gte: thirtyDaysAgo } },
-    _sum: { amount: true },
+  
+  const txSnap = await db.collection('transactions')
+    .where('userId', '==', userId)
+    .where('type', '==', 'INCOME')
+    .get();
+
+  let monthlyIncome = 0;
+  txSnap.forEach((doc: any) => {
+    const data = doc.data();
+    const occurredAt = new Date(data.occurredAt);
+    if (occurredAt.getTime() >= thirtyDaysAgo.getTime()) {
+      monthlyIncome += data.amount || 0;
+    }
   });
-  const monthlyIncome = incomeResult._sum.amount ?? 0;
+
   const burdenPct = monthlyIncome > 0 ? Math.round((monthlyTotal / monthlyIncome) * 100) : 0;
 
   return { subs, monthlyTotal, annualTotal, burdenPct, monthlyIncome };
@@ -84,15 +158,27 @@ export async function getSubscriptionBurden(userId: string) {
 export async function getSuggestedSubscriptions(userId: string) {
   const sixMonthsAgo = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000);
 
-  const txs = await prisma.transaction.findMany({
-    where: {
-      userId,
-      type: 'EXPENSE',
-      occurredAt: { gte: sixMonthsAgo },
-    },
-    orderBy: { occurredAt: 'asc' },
-    select: { merchant: true, amount: true, occurredAt: true, linkedSubscriptionId: true },
+  const txSnap = await db.collection('transactions')
+    .where('userId', '==', userId)
+    .where('type', '==', 'EXPENSE')
+    .get();
+
+  const txs: Array<{ merchant: string; amount: number; occurredAt: Date; linkedSubscriptionId?: string | null }> = [];
+  txSnap.forEach((doc: any) => {
+    const data = doc.data();
+    const occurredAt = new Date(data.occurredAt);
+    if (occurredAt.getTime() >= sixMonthsAgo.getTime()) {
+      txs.push({
+        merchant:             data.merchant,
+        amount:               data.amount,
+        occurredAt,
+        linkedSubscriptionId: data.linkedSubscriptionId || null,
+      });
+    }
   });
+
+  // Sort chronologically ascending
+  txs.sort((a, b) => a.occurredAt.getTime() - b.occurredAt.getTime());
 
   // Group by merchant
   const merchantMap = new Map<string, { amounts: number[]; dates: Date[] }>();
@@ -108,11 +194,15 @@ export async function getSuggestedSubscriptions(userId: string) {
   }
 
   // Filter merchants with 2+ occurrences and consistent amounts (±10%)
-  const existingSubs = await prisma.subscription.findMany({
-    where: { userId },
-    select: { merchantMatchRule: true },
+  const subSnap = await db.collection('subscriptions')
+    .where('userId', '==', userId)
+    .get();
+
+  const trackedMerchants = new Set<string>();
+  subSnap.forEach((doc: any) => {
+    const rule = doc.data().merchantMatchRule;
+    if (rule) trackedMerchants.add(rule);
   });
-  const trackedMerchants = new Set(existingSubs.map((s) => s.merchantMatchRule).filter(Boolean));
 
   const candidates: { merchant: string; avgAmount: number; occurrences: number; suggestedCycle: string }[] = [];
 

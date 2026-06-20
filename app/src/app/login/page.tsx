@@ -4,11 +4,59 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/store/app';
 import { motion } from 'framer-motion';
+import { 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signInWithPopup, 
+  GoogleAuthProvider, 
+  OAuthProvider 
+} from 'firebase/auth';
+import { auth } from '@/lib/firebase-client';
 
 export default function LoginPage() {
   const showToast = useAppStore((s) => s.showToast);
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
+
+  async function handleSocialLogin(providerName: 'google' | 'microsoft') {
+    setLoading(true);
+    try {
+      const isMock = 
+        !process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 
+        process.env.NEXT_PUBLIC_FIREBASE_API_KEY === 'mock-api-key-unsafe';
+      
+      let idToken = '';
+      if (isMock) {
+        // Fall back to sandbox flow if credentials are not configured
+        idToken = `sandbox_${providerName}_user`;
+      } else {
+        const provider = providerName === 'google' 
+          ? new GoogleAuthProvider() 
+          : new OAuthProvider('microsoft.com');
+        const result = await signInWithPopup(auth, provider);
+        idToken = await result.user.getIdToken();
+      }
+
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken }),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        showToast('Welcome back! ⚡');
+        window.location.href = '/dashboard';
+      } else {
+        showToast(data.error || 'Authentication failed');
+      }
+    } catch (e: any) {
+      console.error('Social Login Error:', e);
+      showToast(e.message || 'OAuth authentication failed');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -19,8 +67,27 @@ export default function LoginPage() {
     const name = fd.get('name') as string;
 
     try {
+      const isMock = 
+        !process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 
+        process.env.NEXT_PUBLIC_FIREBASE_API_KEY === 'mock-api-key-unsafe';
+      
+      let idToken = '';
+      if (isMock) {
+        // Generate a mock token for local fallback DB
+        const uid = `mock-user-${email.replace(/[^a-zA-Z0-9]/g, '-')}`;
+        idToken = `mock-token:${uid}:${email}:${name || 'Stasher'}`;
+      } else {
+        if (isLogin) {
+          const userCredential = await signInWithEmailAndPassword(auth, email, password);
+          idToken = await userCredential.user.getIdToken();
+        } else {
+          const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+          idToken = await userCredential.user.getIdToken();
+        }
+      }
+
       const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
-      const body = isLogin ? { email, password } : { email, password, name };
+      const body = isLogin ? { idToken } : { idToken, name };
 
       const res = await fetch(endpoint, {
         method: 'POST',
@@ -36,8 +103,9 @@ export default function LoginPage() {
       } else {
         showToast(data.error || 'Authentication failed');
       }
-    } catch {
-      showToast('Network error');
+    } catch (e: any) {
+      console.error('Submit Auth Error:', e);
+      showToast(e.message || 'Authentication failed');
     } finally {
       setLoading(false);
     }
@@ -70,9 +138,10 @@ export default function LoginPage() {
 
         {/* Social Auth Buttons */}
         <div className="flex flex-col gap-3 mb-6">
-          <a
-            href="/api/auth/oauth/google"
-            className="w-full flex items-center justify-center gap-3 border-4 border-inverse-surface py-3 font-headline font-black text-sm uppercase bg-white hard-shadow hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all cursor-pointer"
+          <button
+            onClick={() => handleSocialLogin('google')}
+            disabled={loading}
+            className="w-full flex items-center justify-center gap-3 border-4 border-inverse-surface py-3 font-headline font-black text-sm uppercase bg-white hard-shadow hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all cursor-pointer disabled:opacity-50"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -81,10 +150,11 @@ export default function LoginPage() {
               <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
             </svg>
             Continue with Google
-          </a>
-          <a
-            href="/api/auth/oauth/microsoft"
-            className="w-full flex items-center justify-center gap-3 border-4 border-inverse-surface py-3 font-headline font-black text-sm uppercase bg-[#f3f3f3] hard-shadow hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all cursor-pointer"
+          </button>
+          <button
+            onClick={() => handleSocialLogin('microsoft')}
+            disabled={loading}
+            className="w-full flex items-center justify-center gap-3 border-4 border-inverse-surface py-3 font-headline font-black text-sm uppercase bg-[#f3f3f3] hard-shadow hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all cursor-pointer disabled:opacity-50"
           >
             <svg className="w-5 h-5" viewBox="0 0 23 23" aria-hidden="true">
               <path fill="#f25022" d="M0 0h11v11H0z"/>
@@ -93,7 +163,7 @@ export default function LoginPage() {
               <path fill="#ffb900" d="M12 12h11v11H12z"/>
             </svg>
             Continue with Microsoft
-          </a>
+          </button>
         </div>
 
         {/* Divider */}

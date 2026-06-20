@@ -2,7 +2,7 @@
 
 import { useAppStore } from '@/store/app';
 import { useNotifications, useClearNotifications } from '@/hooks/useStash';
-import type { Notification } from '@prisma/client';
+import type { Notification } from '@/lib/types';
 
 const NOTIF_ICONS: Record<string, string> = {
   BUCKET_MILESTONE: 'bolt',

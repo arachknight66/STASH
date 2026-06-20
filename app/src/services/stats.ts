@@ -1,32 +1,58 @@
-import { prisma } from '@/lib/prisma';
-import { TransactionType } from '@prisma/client';
+import { db } from '@/lib/firebase-admin';
+import { TransactionType, NotificationType, Notification, Bucket } from '@/lib/types';
 
 export async function getStats(userId: string) {
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
-  const [incomeAgg, expenseAgg, recentTransactions, buckets] = await Promise.all([
-    prisma.transaction.aggregate({
-      _sum: { amount: true },
-      where: { userId, type: TransactionType.INCOME }
-    }),
-    prisma.transaction.aggregate({
-      _sum: { amount: true },
-      where: { userId, type: TransactionType.EXPENSE }
-    }),
-    prisma.transaction.findMany({
-      where: { userId, createdAt: { gte: thirtyDaysAgo } },
-    }),
-    prisma.bucket.findMany({ where: { userId } }),
+  // Fetch all transactions and buckets for the user in parallel
+  const [txSnap, bucketSnap] = await Promise.all([
+    db.collection('transactions').where('userId', '==', userId).get(),
+    db.collection('buckets').where('userId', '==', userId).get(),
   ]);
 
-  // Liquidity = total income - total expenses
-  const totalIncome  = incomeAgg._sum.amount ?? 0;
-  const totalExpense = expenseAgg._sum.amount ?? 0;
-  const liquidity    = totalIncome - totalExpense;
+  const transactions: any[] = [];
+  txSnap.forEach((doc: any) => {
+    const data = doc.data();
+    transactions.push({
+      ...data,
+      occurredAt: new Date(data.occurredAt),
+      createdAt: new Date(data.createdAt),
+    });
+  });
 
-  // Monthly spend
-  const monthlySpend  = recentTransactions.filter(t => t.type === TransactionType.EXPENSE).reduce((s, t) => s + t.amount, 0);
-  const monthlyIncome = recentTransactions.filter(t => t.type === TransactionType.INCOME).reduce((s, t)  => s + t.amount, 0);
+  const buckets: Bucket[] = [];
+  bucketSnap.forEach((doc: any) => {
+    const data = doc.data();
+    buckets.push({
+      ...data,
+      createdAt: new Date(data.createdAt),
+      updatedAt: new Date(data.updatedAt),
+    } as Bucket);
+  });
+
+  // Calculate total income and expenses across all time
+  const totalIncome = transactions
+    .filter((t) => t.type === 'INCOME')
+    .reduce((sum, t) => sum + (t.amount || 0), 0);
+
+  const totalExpense = transactions
+    .filter((t) => t.type === 'EXPENSE')
+    .reduce((sum, t) => sum + (t.amount || 0), 0);
+
+  const liquidity = totalIncome - totalExpense;
+
+  // Monthly stats (last 30 days)
+  const recentTransactions = transactions.filter(
+    (t) => t.occurredAt.getTime() >= thirtyDaysAgo.getTime()
+  );
+
+  const monthlySpend = recentTransactions
+    .filter((t) => t.type === 'EXPENSE')
+    .reduce((sum, t) => sum + (t.amount || 0), 0);
+
+  const monthlyIncome = recentTransactions
+    .filter((t) => t.type === 'INCOME')
+    .reduce((sum, t) => sum + (t.amount || 0), 0);
 
   // Daily burn (last 30 days)
   const dailyBurn = monthlySpend / 30;
@@ -37,8 +63,8 @@ export async function getStats(userId: string) {
   // Category breakdown (last 30 days)
   const categoryBreakdown: Record<string, number> = {};
   recentTransactions
-    .filter(t => t.type === TransactionType.EXPENSE)
-    .forEach(t => {
+    .filter((t) => t.type === 'EXPENSE')
+    .forEach((t) => {
       categoryBreakdown[t.category] = (categoryBreakdown[t.category] ?? 0) + t.amount;
     });
 
@@ -81,40 +107,69 @@ export async function getStats(userId: string) {
   };
 }
 
-export async function getNotifications(userId: string) {
-  // Auto-generate weekly reminder
+export async function getNotifications(userId: string): Promise<Notification[]> {
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-  
-  const recentReminder = await prisma.notification.findFirst({
-    where: { 
-      userId, 
-      title: 'Weekly Check-in',
-      createdAt: { gte: sevenDaysAgo }
+
+  // Auto-generate weekly reminder if not present in the last 7 days
+  const notifSnap = await db.collection('notifications')
+    .where('userId', '==', userId)
+    .get();
+
+  const notifs: Notification[] = [];
+  let recentReminderFound = false;
+
+  notifSnap.forEach((doc: any) => {
+    const data = doc.data();
+    const createdAt = new Date(data.createdAt);
+    
+    if (data.title === 'Weekly Check-in' && createdAt.getTime() >= sevenDaysAgo.getTime()) {
+      recentReminderFound = true;
     }
+
+    notifs.push({
+      ...data,
+      createdAt,
+    } as Notification);
   });
 
-  if (!recentReminder) {
-    await prisma.notification.create({
-      data: {
-        userId,
-        type: 'GENERAL',
-        title: 'Weekly Check-in',
-        body: 'Did you hit your savings goals this week? Review your spending and top up a bucket.',
-        link: '/buckets',
-      }
-    });
+  if (!recentReminderFound) {
+    const newRef = db.collection('notifications').doc();
+    const now = new Date().toISOString();
+    const newNotif = {
+      id:        newRef.id,
+      userId,
+      type:      NotificationType.GENERAL,
+      title:     'Weekly Check-in',
+      body:      'Did you hit your savings goals this week? Review your spending and top up a bucket.',
+      link:      '/buckets',
+      isRead:    false,
+      createdAt: now,
+    };
+    await newRef.set(newNotif);
+    notifs.push({
+      ...newNotif,
+      createdAt: new Date(now),
+    } as Notification);
   }
 
-  return prisma.notification.findMany({
-    where: { userId },
-    orderBy: { createdAt: 'desc' },
-    take: 20,
-  });
+  // Sort descending by createdAt
+  notifs.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+  // Return top 20 notifications
+  return notifs.slice(0, 20);
 }
 
-export async function markNotificationsRead(userId: string) {
-  return prisma.notification.updateMany({
-    where: { userId, isRead: false },
-    data: { isRead: true },
+export async function markNotificationsRead(userId: string): Promise<void> {
+  const snap = await db.collection('notifications')
+    .where('userId', '==', userId)
+    .where('isRead', '==', false)
+    .get();
+
+  const batch = db.runTransaction(async (transaction: any) => {
+    snap.forEach((doc: any) => {
+      transaction.update(db.collection('notifications').doc(doc.id), { isRead: true });
+    });
   });
+
+  await batch;
 }

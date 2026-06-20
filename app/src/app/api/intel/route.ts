@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { ok, fail, serverError, getUserId } from '@/lib/api';
-import { prisma } from '@/lib/prisma';
+import { db } from '@/lib/firebase-admin';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
@@ -9,16 +9,36 @@ export async function GET(req: NextRequest) {
     const userId = await getUserId(req);
     if (!userId) return fail('Unauthorized', 401);
 
-    // Fetch user's recent transactions
-    const transactions = await prisma.transaction.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' },
-      take: 50,
+    // Fetch user's transactions from Firestore
+    const txSnap = await db.collection('transactions')
+      .where('userId', '==', userId)
+      .get();
+
+    const transactions: any[] = [];
+    txSnap.forEach((doc: any) => {
+      const data = doc.data();
+      transactions.push({
+        ...data,
+        createdAt: new Date(data.createdAt),
+        occurredAt: new Date(data.occurredAt),
+      });
     });
 
-    const buckets = await prisma.bucket.findMany({ where: { userId } });
+    // Sort descending by occurredAt and take 50
+    transactions.sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime());
+    const recentTransactions = transactions.slice(0, 50);
 
-    if (transactions.length === 0) {
+    // Fetch buckets
+    const bucketSnap = await db.collection('buckets')
+      .where('userId', '==', userId)
+      .get();
+
+    const buckets: any[] = [];
+    bucketSnap.forEach((doc: any) => {
+      buckets.push(doc.data());
+    });
+
+    if (recentTransactions.length === 0) {
       return ok({
         summary: 'No transactions to analyze yet. Start logging your spending!',
         tips: ['Log your first transaction from the Dashboard'],
@@ -28,10 +48,10 @@ export async function GET(req: NextRequest) {
     }
 
     // Build stats
-    const totalSpent = transactions.filter(t => t.type === 'EXPENSE').reduce((s, t) => s + t.amount, 0);
-    const totalIncome = transactions.filter(t => t.type === 'INCOME').reduce((s, t) => s + t.amount, 0);
+    const totalSpent = recentTransactions.filter(t => t.type === 'EXPENSE').reduce((s, t) => s + t.amount, 0);
+    const totalIncome = recentTransactions.filter(t => t.type === 'INCOME').reduce((s, t) => s + t.amount, 0);
     const categories: Record<string, number> = {};
-    transactions.filter(t => t.type === 'EXPENSE').forEach(t => {
+    recentTransactions.filter(t => t.type === 'EXPENSE').forEach(t => {
       categories[t.category] = (categories[t.category] || 0) + t.amount;
     });
 
@@ -51,6 +71,7 @@ export async function GET(req: NextRequest) {
         proInsight: `If you trimmed your top category (${topCategory}) by 20%, you could save $${recoveryMove.toFixed(2)} this month without feeling it.`,
       });
     }
+
     const catBreakdown = Object.entries(categories)
       .sort(([, a], [, b]) => b - a)
       .map(([cat, amt]) => `${cat}: $${amt.toFixed(2)}`)
@@ -67,8 +88,8 @@ USER DATA:
 - Total income (USD): $${totalIncome.toFixed(2)}  
 - Category breakdown: ${catBreakdown}
 - Savings buckets: ${bucketSummary}
-- Number of transactions: ${transactions.length}
-- Most recent purchase: ${transactions[0].merchant} ($${transactions[0].amount.toFixed(2)}, ${transactions[0].category})
+- Number of transactions: ${recentTransactions.length}
+- Most recent purchase: ${recentTransactions[0].merchant} ($${recentTransactions[0].amount.toFixed(2)}, ${recentTransactions[0].category})
 
 Respond with ONLY valid JSON (no markdown, no backticks):
 {
