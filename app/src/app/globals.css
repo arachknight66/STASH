@@ -2,7 +2,7 @@
 
 @theme {
   --font-headline: var(--font-space-grotesk), "Space Grotesk", sans-serif;
-  --font-body:     var(--font-plus-jakarta),  "Plus Jakarta Sans", sans-serif;
+  --font-body: var(--font-plus-jakarta), "Plus Jakarta Sans", sans-serif;
 
   --color-error: #b02500;
   --color-on-background: #2d2f2f;
@@ -64,18 +64,32 @@
 }
 
 /* ── Neo-Brutalist Shadows ── */
-.hard-shadow    { box-shadow: 4px 4px 0px 0px #0c0f0f; }
-.hard-shadow-lg { box-shadow: 8px 8px 0px 0px #0c0f0f; }
-.hard-shadow-sm { box-shadow: 2px 2px 0px 0px #0c0f0f; }
-.active-press:active { transform: translate(4px, 4px); box-shadow: none; }
+.hard-shadow {
+  box-shadow: 4px 4px 0px 0px #0c0f0f;
+}
+
+.hard-shadow-lg {
+  box-shadow: 8px 8px 0px 0px #0c0f0f;
+}
+
+.hard-shadow-sm {
+  box-shadow: 2px 2px 0px 0px #0c0f0f;
+}
+
+.active-press:active {
+  transform: translate(4px, 4px);
+  box-shadow: none;
+}
 
 /* ── Animations ── */
 .interactive-lift {
   transition: transform 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease, border-color 0.18s ease;
 }
+
 .interactive-lift:hover {
   transform: translate(-4px, -4px);
 }
+
 .interactive-lift:focus-visible {
   transform: translate(-4px, -4px);
   outline: 3px solid #a400a4;
@@ -85,6 +99,7 @@
 .interactive-soft {
   transition: transform 0.18s ease, opacity 0.18s ease, background-color 0.18s ease;
 }
+
 .interactive-soft:hover {
   transform: translateY(-2px);
 }
@@ -95,21 +110,24 @@
 
 /* Stripe animation for progress bars */
 @keyframes stripe-move {
-  0% { background-position: 0 0; }
-  100% { background-position: 1rem 0; }
+  0% {
+    background-position: 0 0;
+  }
+
+  100% {
+    background-position: 1rem 0;
+  }
 }
 
 .animate-stripes {
-  background-image: linear-gradient(
-    45deg,
-    rgba(255, 255, 255, 0.2) 25%,
-    transparent 25%,
-    transparent 50%,
-    rgba(255, 255, 255, 0.2) 50%,
-    rgba(255, 255, 255, 0.2) 75%,
-    transparent 75%,
-    transparent
-  );
+  background-image: linear-gradient(45deg,
+      rgba(255, 255, 255, 0.2) 25%,
+      transparent 25%,
+      transparent 50%,
+      rgba(255, 255, 255, 0.2) 50%,
+      rgba(255, 255, 255, 0.2) 75%,
+      transparent 75%,
+      transparent);
   background-size: 1rem 1rem;
   animation: stripe-move 1s linear infinite;
 }
@@ -120,39 +138,75 @@
 }
 
 @keyframes pulse-op {
-  0%, 100% { opacity: 0.6; }
-  50% { opacity: 1; }
+
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+
+  50% {
+    opacity: 1;
+  }
 }
 
 /* Retro DOS style scrollbar */
 .terminal-scrollbar::-webkit-scrollbar {
   width: 8px;
 }
+
 .terminal-scrollbar::-webkit-scrollbar-track {
   background: #000;
-  border-left: 2px solid #fff;
+  border-left: 2px solid #1a1a1a;
 }
+
 .terminal-scrollbar::-webkit-scrollbar-thumb {
-  background: #fff;
+  background: #333;
   border: 1px solid #000;
 }
 
+.terminal-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* ── Bottom nav safe area ── */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  nav.bottom-nav-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
 /* ── Dark Mode ── */
-html.dark { color-scheme: dark; }
+html.dark {
+  color-scheme: dark;
+}
 
 html.dark body {
   background: #0b0f11 !important;
   color: #f2f5f7 !important;
 }
 
-html.dark header,
-html.dark nav,
+/* ─── Dark: Bottom Nav ─────────────────────────────────────────────────────── */
+/* Override the hardcoded bg-[#cafd00] on the nav bar */
+html.dark nav[class*="bg-\[#cafd00\]"],
+html.dark .bottom-nav-bar {
+  background-color: #1a2820 !important;
+  border-color: #2d3f35 !important;
+}
+
+/* ─── Dark: Header ─────────────────────────────────────────────────────────── */
+html.dark header {
+  background: #0b0f11 !important;
+  border-color: #2a3540 !important;
+}
+
+/* ─── Dark: Notification Drawer & Settings ─────────────────────────────────── */
 html.dark #notif-drawer,
 html.dark .settings-panel-inner {
   background: #11171a !important;
-  border-color: #4d5961 !important;
+  border-color: #2a3540 !important;
 }
 
+/* ─── Dark: Surfaces ───────────────────────────────────────────────────────── */
 html.dark .bg-background,
 html.dark .bg-\[\#f6f6f6\] {
   background-color: #0f1418 !important;
@@ -188,37 +242,83 @@ html.dark .bg-tertiary-container {
   color: #e2f1ff !important;
 }
 
-html.dark .bg-primary    { background-color: #93cb47 !important; color: #102000 !important; }
-html.dark .bg-secondary  { background-color: #cf70dd !important; color: #24082c !important; }
-html.dark .bg-tertiary   { background-color: #71aee7 !important; color: #081827 !important; }
-html.dark .bg-inverse-surface { background-color: #0b1014 !important; color: #f2f5f7 !important; }
-html.dark .bg-error-container { background-color: #5a221c !important; color: #ffe4df !important; }
-html.dark .bg-error       { background-color: #d95a4d !important; color: #220604 !important; }
+html.dark .bg-primary {
+  background-color: #93cb47 !important;
+  color: #102000 !important;
+}
 
+html.dark .bg-secondary {
+  background-color: #cf70dd !important;
+  color: #24082c !important;
+}
+
+html.dark .bg-tertiary {
+  background-color: #71aee7 !important;
+  color: #081827 !important;
+}
+
+html.dark .bg-inverse-surface {
+  background-color: #0b1014 !important;
+  color: #f2f5f7 !important;
+}
+
+html.dark .bg-error-container {
+  background-color: #5a221c !important;
+  color: #ffe4df !important;
+}
+
+html.dark .bg-error {
+  background-color: #d95a4d !important;
+  color: #220604 !important;
+}
+
+/* ─── Dark: Text ───────────────────────────────────────────────────────────── */
 html.dark .text-on-background,
 html.dark .text-on-surface,
-html.dark .text-\[\#0c0f0f\] { color: #f2f5f7 !important; }
+html.dark .text-\[\#0c0f0f\] {
+  color: #f2f5f7 !important;
+}
 
-html.dark .text-on-surface-variant { color: #c7d1d7 !important; }
-html.dark .text-primary   { color: #c7f37d !important; }
-html.dark .text-secondary { color: #ef98fb !important; }
-html.dark .text-tertiary  { color: #9ed2ff !important; }
-html.dark .text-primary-dim { color: #c7f37d !important; }
+html.dark .text-on-surface-variant {
+  color: #c7d1d7 !important;
+}
+
+html.dark .text-primary {
+  color: #c7f37d !important;
+}
+
+html.dark .text-secondary {
+  color: #ef98fb !important;
+}
+
+html.dark .text-tertiary {
+  color: #9ed2ff !important;
+}
+
+html.dark .text-primary-dim {
+  color: #c7f37d !important;
+}
+
+html.dark .text-inverse-surface {
+  color: #f2f5f7 !important;
+}
 
 html.dark .text-error,
-html.dark .text-on-error-container { color: #ffb8b2 !important; }
+html.dark .text-on-error-container {
+  color: #ffb8b2 !important;
+}
 
+/* ─── Dark: Borders ────────────────────────────────────────────────────────── */
 html.dark .border-\[\#0c0f0f\],
-html.dark .border-inverse-surface { border-color: #42515c !important; }
+html.dark .border-inverse-surface {
+  border-color: #42515c !important;
+}
 
-html.dark .divide-outline-variant > :not([hidden]) ~ :not([hidden]) {
+html.dark .divide-outline-variant> :not([hidden])~ :not([hidden]) {
   border-color: #34414b !important;
 }
 
-html.dark nav { background: #121b22 !important; }
-html.dark .nav-btn { color: #deeaef !important; border-color: #42515c !important; }
-html.dark .nav-btn:hover { background: #20343e !important; }
-
+/* ─── Dark: Hard shadows ───────────────────────────────────────────────────── */
 html.dark .hard-shadow,
 html.dark .hard-shadow-lg,
 html.dark .hard-shadow-sm {
@@ -226,5 +326,42 @@ html.dark .hard-shadow-sm {
 }
 
 html.dark .hover-glow:hover {
-  box-shadow: 0 0 0 3px rgba(199, 243, 125, 0.28);
+  box-shadow: 0 0 0 3px rgba(199, 243, 125, 0.22);
+}
+
+/* ─── Dark: DOS Terminal ────────────────────────────────────────────────────── */
+/* The terminal bg-black stays black in dark mode — it should look the same */
+/* Only the header bar needs updating */
+html.dark .terminal-header-bar {
+  background-color: #1e2a20 !important;
+  color: #cafd00 !important;
+  border-color: #2d3f30 !important;
+}
+
+/* ─── Dark: FAB ────────────────────────────────────────────────────────────── */
+html.dark .bg-secondary {
+  background-color: #cf70dd !important;
+}
+
+/* ─── Dark: Nav button overrides ───────────────────────────────────────────── */
+html.dark nav .nav-btn {
+  color: #deeaef !important;
+  border-color: #42515c !important;
+}
+
+html.dark nav .nav-btn:hover {
+  background: #20343e !important;
+}
+
+/* ─── Active press on mobile ────────────────────────────────────────────────── */
+@media (hover: none) {
+
+  /* On touch devices, remove hover transforms — use active state instead */
+  .interactive-lift:hover {
+    transform: none;
+  }
+
+  .interactive-lift:active {
+    transform: translate(2px, 2px);
+  }
 }

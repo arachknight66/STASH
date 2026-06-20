@@ -6,17 +6,22 @@ import type { CurrencyCode } from '@/lib/currencies';
 
 export type Page = 'dash' | 'feed' | 'buckets' | 'bills' | 'subs' | 'intel';
 
+export type FabAction = 'quick_spend' | 'load_up' | 'boost' | null;
+
 interface AppState {
   currentPage: Page;
   darkMode: boolean;
   currency: CurrencyCode;
-  toast: { message: string; id: number } | null;
+  toast: { message: string; id: number; type?: 'success' | 'error' | 'info' } | null;
+  pendingFabAction: FabAction;
 
   navigate: (page: Page) => void;
   setDarkMode: (enabled: boolean) => void;
   setCurrency: (code: CurrencyCode) => void;
-  showToast: (message: string) => void;
+  showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
   dismissToast: () => void;
+  setPendingFabAction: (action: FabAction) => void;
+  clearPendingFabAction: () => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -26,12 +31,16 @@ export const useAppStore = create<AppState>()(
       darkMode: false,
       currency: 'USD',
       toast: null,
+      pendingFabAction: null,
 
       navigate: (page) => set({ currentPage: page }),
       setDarkMode: (darkMode) => set({ darkMode }),
       setCurrency: (currency) => set({ currency }),
-      showToast: (message) => set({ toast: { message, id: Date.now() } }),
+      showToast: (message, type = 'success') =>
+        set({ toast: { message, id: Date.now(), type } }),
       dismissToast: () => set({ toast: null }),
+      setPendingFabAction: (action) => set({ pendingFabAction: action }),
+      clearPendingFabAction: () => set({ pendingFabAction: null }),
     }),
     {
       name: 'stash-app',
@@ -39,3 +48,4 @@ export const useAppStore = create<AppState>()(
     },
   ),
 );
+
