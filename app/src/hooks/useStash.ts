@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { Transaction, Bucket, Notification, Settings } from '@/lib/types';
-import type { CreateTransactionInput } from '@/lib/schemas';
+import type { CreateTransactionInput, CreateBucketInput, UpdateBucketInput, UpdateSettingsInput } from '@/lib/schemas';
 import { useAppStore } from '@/store/app';
 
 function authHeaders() {
@@ -79,7 +79,7 @@ export function useCreateTransaction() {
 
       return { previousQueries, prevStats };
     },
-    onError: (err, newTxInput, context: any) => {
+    onError: (_err, _newTxInput, context: any) => {
       if (context?.previousQueries) {
         context.previousQueries.forEach(([queryKey, value]: any) => {
           qc.setQueryData(queryKey, value);
@@ -142,7 +142,7 @@ export function useDeleteTransaction() {
 
       return { previousQueries, prevStats };
     },
-    onError: (err, id, context: any) => {
+    onError: (_err, _id, context: any) => {
       if (context?.previousQueries) {
         context.previousQueries.forEach(([queryKey, value]: any) => {
           qc.setQueryData(queryKey, value);
@@ -160,9 +160,6 @@ export function useDeleteTransaction() {
 }
 
 // ─── Buckets ──────────────────────────────────────────────────────────────────
-
-// Type imported from unified types above
-import type { CreateBucketInput, UpdateBucketInput } from '@/lib/schemas';
 
 export function useBuckets() {
   return useQuery({
@@ -326,8 +323,6 @@ export function useIntel() {
 
 // ─── Notifications ────────────────────────────────────────────────────────────
 
-// Type imported from unified types above
-
 export function useNotifications() {
   return useQuery({
     queryKey: ['notifications'],
@@ -357,9 +352,6 @@ export function useClearNotifications() {
 
 // ─── Settings ─────────────────────────────────────────────────────────────────
 
-// Type imported from unified types above
-import type { UpdateSettingsInput } from '@/lib/schemas';
-
 export function useSettings() {
   return useQuery({
     queryKey: ['settings'],
@@ -367,7 +359,9 @@ export function useSettings() {
       const res = await fetch('/api/settings', { headers: authHeaders() });
       const json = await res.json();
       if (!json.success) throw new Error(json.error);
-      return json.data as Settings & { user: { name: string; email: string; initials: string; } } | null;
+      return json.data as Settings & {
+        user: { name: string; email: string; initials: string };
+      } | null;
     },
   });
 }
@@ -389,7 +383,7 @@ export function useUpdateSettings() {
       return json.data as Settings;
     },
     onMutate: (input) => {
-      // Optimistic local update
+      // Optimistic local update — immediately reflects in UI
       if (input.darkMode !== undefined) setDarkMode(input.darkMode);
       if (input.currency !== undefined) setCurrency(input.currency as 'USD' | 'EUR' | 'INR' | 'GBP');
     },
