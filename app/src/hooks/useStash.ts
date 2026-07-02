@@ -390,3 +390,148 @@ export function useUpdateSettings() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['settings'] }),
   });
 }
+
+// ─── Accounts ─────────────────────────────────────────────────────────────────
+
+import type { Account } from '@/lib/types';
+import type { CreateAccountInput, UpdateAccountInput, TransferInput } from '@/lib/schemas';
+
+export function useAccounts() {
+  return useQuery({
+    queryKey: ['accounts'],
+    queryFn: async () => {
+      const res = await fetch('/api/accounts', { headers: authHeaders() });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error);
+      return json.data.accounts as Account[];
+    },
+  });
+}
+
+export function useCreateAccount() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: CreateAccountInput) => {
+      const res = await fetch('/api/accounts', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify(input),
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error);
+      return json.data.account as Account;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['accounts'] });
+      qc.invalidateQueries({ queryKey: ['stats'] });
+    },
+  });
+}
+
+export function useArchiveAccount() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/accounts/${id}`, { method: 'DELETE', headers: authHeaders() });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['accounts'] });
+      qc.invalidateQueries({ queryKey: ['stats'] });
+    },
+  });
+}
+
+export function useTransferBetweenAccounts() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: TransferInput) => {
+      const res = await fetch('/api/accounts', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ _action: 'transfer', ...input }),
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error);
+      return json.data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['accounts'] });
+      qc.invalidateQueries({ queryKey: ['transactions'] });
+      qc.invalidateQueries({ queryKey: ['stats'] });
+    },
+  });
+}
+
+// ─── Budgets ──────────────────────────────────────────────────────────────────
+
+export interface EnrichedBudget {
+  id: string;
+  userId: string;
+  name: string;
+  scope: 'OVERALL' | 'CATEGORY';
+  category: string | null;
+  amount: number;
+  period: string;
+  startDay: number;
+  alertThresholdPct: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  // computed by API
+  spent: number;
+  pct: number;
+  isOverBudget: boolean;
+  isWarning: boolean;
+}
+
+export function useBudgets() {
+  return useQuery({
+    queryKey: ['budgets'],
+    queryFn: async () => {
+      const res = await fetch('/api/budgets', { headers: authHeaders() });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error);
+      return json.data.budgets as EnrichedBudget[];
+    },
+  });
+}
+
+export function useCreateBudget() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: Record<string, unknown>) => {
+      const res = await fetch('/api/budgets', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify(input),
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error);
+      return json.data.budget as EnrichedBudget;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['budgets'] });
+    },
+  });
+}
+
+export function useDeleteBudget() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      // Budget delete is a PATCH with isActive: false
+      const res = await fetch(`/api/budgets/${id}`, {
+        method: 'PATCH',
+        headers: authHeaders(),
+        body: JSON.stringify({ isActive: false }),
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['budgets'] });
+    },
+  });
+}

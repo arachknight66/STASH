@@ -4,22 +4,29 @@ import { useAppStore, type Page } from '@/store/app';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useRef } from 'react';
 
-// Merged BILLS + SUBS into VAULT, moved INTEL under more
+// 5 primary nav items — vault replaces intel (intel moves to FAB)
 const NAV_ITEMS: { id: Page; label: string; icon: string }[] = [
   { id: 'dash', label: 'Dash', icon: 'grid_view' },
   { id: 'feed', label: 'Feed', icon: 'receipt_long' },
   { id: 'buckets', label: 'Buckets', icon: 'savings' },
   { id: 'bills', label: 'Bills', icon: 'receipt' },
-  { id: 'intel', label: 'Intel', icon: 'analytics' },
+  { id: 'vault', label: 'Vault', icon: 'account_balance_wallet' },
 ];
 
-// FAB quick actions
-const FAB_ACTIONS: { id: string; label: string; icon: string; page?: Page; action?: string }[] = [
-  { id: 'spend', label: 'Quick Spend', icon: 'bolt', action: 'quick_spend' },
-  { id: 'income', label: 'Load Up', icon: 'add_card', action: 'load_up' },
-  { id: 'subs', label: 'Subs', icon: 'autorenew', page: 'subs' },
-  { id: 'bucket', label: 'Boost', icon: 'rocket_launch', action: 'boost' },
-];
+// FAB quick actions — subs + intel moved here
+const FAB_ACTIONS: {
+  id: string;
+  label: string;
+  icon: string;
+  page?: Page;
+  action?: string;
+}[] = [
+    { id: 'spend', label: 'Quick Spend', icon: 'bolt', action: 'quick_spend' },
+    { id: 'income', label: 'Load Up', icon: 'add_card', action: 'load_up' },
+    { id: 'boost', label: 'Boost', icon: 'rocket_launch', action: 'boost' },
+    { id: 'subs', label: 'Subs', icon: 'autorenew', page: 'subs' },
+    { id: 'intel', label: 'Intel', icon: 'analytics', page: 'intel' },
+  ];
 
 interface BottomNavProps {
   onFabAction?: (action: string) => void;
@@ -42,7 +49,7 @@ export default function BottomNav({ onFabAction }: BottomNavProps) {
 
   return (
     <>
-      {/* FAB overlay backdrop */}
+      {/* FAB backdrop */}
       <AnimatePresence>
         {fabOpen && (
           <motion.div
@@ -57,7 +64,7 @@ export default function BottomNav({ onFabAction }: BottomNavProps) {
         )}
       </AnimatePresence>
 
-      {/* FAB Action Menu */}
+      {/* FAB action menu */}
       <AnimatePresence>
         {fabOpen && (
           <motion.div
@@ -83,11 +90,9 @@ export default function BottomNav({ onFabAction }: BottomNavProps) {
                 onClick={() => handleFabAction(item)}
                 className="flex items-center gap-3 self-end cursor-pointer group"
               >
-                {/* Label */}
                 <span className="bg-inverse-surface text-white dark:bg-white dark:text-inverse-surface font-headline font-black text-xs uppercase tracking-wider px-3 py-1.5 border-2 border-inverse-surface hard-shadow-sm whitespace-nowrap group-hover:-translate-x-0.5 group-hover:-translate-y-0.5 transition-transform">
                   {item.label}
                 </span>
-                {/* Icon button */}
                 <div className="w-12 h-12 bg-white border-4 border-inverse-surface hard-shadow flex items-center justify-center group-hover:-translate-x-0.5 group-hover:-translate-y-0.5 transition-transform">
                   <span
                     className="material-symbols-outlined text-inverse-surface text-xl"
@@ -102,7 +107,7 @@ export default function BottomNav({ onFabAction }: BottomNavProps) {
         )}
       </AnimatePresence>
 
-      {/* FAB Button */}
+      {/* FAB button */}
       <motion.button
         ref={fabRef}
         onClick={() => setFabOpen((p) => !p)}
@@ -121,9 +126,9 @@ export default function BottomNav({ onFabAction }: BottomNavProps) {
         </motion.span>
       </motion.button>
 
-      {/* Bottom Nav Bar */}
+      {/* Bottom nav bar */}
       <nav
-        className="fixed bottom-0 left-0 w-full z-50 bg-[#cafd00] dark:bg-[#1a2820] border-t-4 border-inverse-surface"
+        className="fixed bottom-0 left-0 w-full z-50 bg-[#cafd00] dark:bg-[#1a2820] border-t-4 border-inverse-surface bottom-nav-safe"
         style={{ height: '68px' }}
       >
         <div
@@ -138,14 +143,13 @@ export default function BottomNav({ onFabAction }: BottomNavProps) {
                 id={`nav-${item.id}`}
                 onClick={() => navigate(item.id)}
                 className={[
-                  'relative flex flex-col items-center justify-center h-full outline-none select-none cursor-pointer',
-                  'transition-colors duration-100',
+                  'relative flex flex-col items-center justify-center h-full outline-none select-none cursor-pointer transition-colors duration-100',
                   i < NAV_ITEMS.length - 1 ? 'border-r-2 border-inverse-surface/30' : '',
                 ].join(' ')}
                 aria-label={item.label}
                 aria-current={isActive ? 'page' : undefined}
               >
-                {/* Active pill background */}
+                {/* Active pill */}
                 {isActive && (
                   <motion.div
                     layoutId="activeNavPill"
@@ -154,7 +158,6 @@ export default function BottomNav({ onFabAction }: BottomNavProps) {
                   />
                 )}
 
-                {/* Press ripple effect */}
                 <motion.div
                   className="relative z-10 flex flex-col items-center justify-center gap-[3px] pointer-events-none"
                   whileTap={{ scale: 0.85 }}
@@ -172,8 +175,6 @@ export default function BottomNav({ onFabAction }: BottomNavProps) {
                   >
                     {item.icon}
                   </span>
-
-                  {/* Label: always visible but styled differently for active */}
                   <span
                     className={[
                       'font-headline uppercase leading-none transition-all duration-150',

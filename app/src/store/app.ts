@@ -4,9 +4,9 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { CurrencyCode } from '@/lib/currencies';
 
-export type Page = 'dash' | 'feed' | 'buckets' | 'bills' | 'subs' | 'intel';
+export type Page = 'dash' | 'feed' | 'buckets' | 'bills' | 'vault' | 'subs' | 'intel';
 
-export type FabAction = 'quick_spend' | 'load_up' | 'boost' | null;
+export type FabAction = 'quick_spend' | 'load_up' | 'boost' | 'intel' | null;
 
 interface AppState {
   currentPage: Page;
@@ -48,4 +48,3 @@ export const useAppStore = create<AppState>()(
     },
   ),
 );
-

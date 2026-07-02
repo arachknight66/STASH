@@ -22,7 +22,7 @@ const NOTIF_ICON_COLORS: Record<string, string> = {
 // Map notification link strings to valid Page values
 // Handles legacy link values like "dash", "buckets", "bills", "subs", "intel", "feed"
 function resolvePage(link: string | null | undefined): Page | null {
-  const valid: Page[] = ['dash', 'feed', 'buckets', 'bills', 'subs', 'intel'];
+  const valid: Page[] = ['dash', 'feed', 'buckets', 'bills', 'subs', 'vault', 'intel'];
   if (!link) return null;
   // Strip leading slash if present
   const clean = link.replace(/^\//, '').toLowerCase() as Page;
