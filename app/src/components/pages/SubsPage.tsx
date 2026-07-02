@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAppStore } from '@/store/app';
 import { formatMoney } from '@/lib/currencies';
+import ActionModal from '@/components/ui/ActionModal';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface Subscription {
@@ -20,6 +21,14 @@ interface Subscription {
   colorTheme: string | null;
 }
 
+interface Account {
+  id: string;
+  name: string;
+  type: string;
+  currentBalance: number;
+  colorTheme: string | null;
+}
+
 interface BurdenData {
   monthlyTotal: number;
   annualTotal: number;
@@ -33,6 +42,8 @@ interface Suggestion {
   occurrences: number;
   suggestedCycle: string;
 }
+
+type ModalConfig = React.ComponentProps<typeof ActionModal>['config'];
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -59,6 +70,21 @@ const STATUS_STYLES: Record<string, string> = {
   TRIAL: 'bg-secondary-container text-on-surface border-inverse-surface',
 };
 
+const SUB_CATEGORIES = [
+  { value: 'ENTERTAINMENT', label: '🎮 Entertainment' },
+  { value: 'FOOD', label: '🍔 Food' },
+  { value: 'DRIP', label: '👟 Drip' },
+  { value: 'BILLS', label: '🧾 Bills' },
+  { value: 'OTHER', label: '📦 Other' },
+];
+
+const BILLING_CYCLES = [
+  { value: 'WEEKLY', label: 'Weekly' },
+  { value: 'MONTHLY', label: 'Monthly' },
+  { value: 'QUARTERLY', label: 'Quarterly' },
+  { value: 'YEARLY', label: 'Yearly' },
+];
+
 const DISMISSED_KEY = 'stash-dismissed-suggestions';
 
 function daysUntil(dateStr: string): number {
@@ -76,7 +102,18 @@ function cycleLabel(cycle: string): string {
   return map[cycle] ?? '/mo';
 }
 
-// Skeleton sub card
+// Returns today + n days in YYYY-MM-DD for date input defaultValue
+function dateInputDefault(daysFromNow = 30): string {
+  const d = new Date();
+  d.setDate(d.getDate() + daysFromNow);
+  return d.toISOString().slice(0, 10);
+}
+
+// Converts YYYY-MM-DD to full ISO datetime the API expects
+function dateToISO(dateStr: string): string {
+  return new Date(`${dateStr}T12:00:00`).toISOString();
+}
+
 function SubSkeleton() {
   return (
     <div className="bg-white border-4 border-inverse-surface hard-shadow p-4 flex items-center gap-4 animate-pulse">
@@ -98,9 +135,9 @@ export default function SubsPage() {
   const currency = useAppStore((s) => s.currency);
   const showToast = useAppStore((s) => s.showToast);
   const qc = useQueryClient();
+  const [modal, setModal] = useState<ModalConfig | null>(null);
 
-  // Persist dismissed suggestions across navigations using sessionStorage
-  // so they don't re-appear when the user goes to another page and comes back
+  // Persist dismissed suggestions across navigations
   const [dismissedSuggestions, setDismissedSuggestions] = useState<Set<string>>(() => {
     if (typeof window === 'undefined') return new Set();
     try {
@@ -111,16 +148,10 @@ export default function SubsPage() {
     }
   });
 
-  // Sync dismissals to sessionStorage whenever they change
   useEffect(() => {
     try {
-      sessionStorage.setItem(
-        DISMISSED_KEY,
-        JSON.stringify(Array.from(dismissedSuggestions)),
-      );
-    } catch {
-      // sessionStorage unavailable (private mode etc) — silent fail
-    }
+      sessionStorage.setItem(DISMISSED_KEY, JSON.stringify(Array.from(dismissedSuggestions)));
+    } catch { /* sessionStorage unavailable */ }
   }, [dismissedSuggestions]);
 
   function dismissSuggestion(merchant: string) {
@@ -128,33 +159,53 @@ export default function SubsPage() {
   }
 
   // ── Data fetching ──────────────────────────────────────────────────────
-  const { data: subsData, isLoading: subsLoading } = useQuery<{
-    subscriptions: Subscription[];
-  }>({
+
+  const { data: subsData, isLoading: subsLoading } = useQuery<{ subscriptions: Subscription[] }>({
     queryKey: ['subscriptions'],
     queryFn: () =>
-      fetch('/api/subscriptions')
-        .then((r) => r.json())
-        .then((d) => d.data),
+      fetch('/api/subscriptions').then((r) => r.json()).then((d) => d.data),
   });
 
   const { data: burdenData, isLoading: burdenLoading } = useQuery<BurdenData>({
     queryKey: ['subscriptions-burden'],
     queryFn: () =>
-      fetch('/api/subscriptions?view=burden')
-        .then((r) => r.json())
-        .then((d) => d.data),
+      fetch('/api/subscriptions?view=burden').then((r) => r.json()).then((d) => d.data),
   });
 
   const { data: suggestData } = useQuery<{ suggestions: Suggestion[] }>({
     queryKey: ['subscriptions-suggestions'],
     queryFn: () =>
-      fetch('/api/subscriptions?view=suggestions')
-        .then((r) => r.json())
-        .then((d) => d.data),
+      fetch('/api/subscriptions?view=suggestions').then((r) => r.json()).then((d) => d.data),
   });
 
+  const { data: accountsData } = useQuery<{ accounts: Account[] }>({
+    queryKey: ['accounts'],
+    queryFn: () =>
+      fetch('/api/accounts').then((r) => r.json()).then((d) => d.data),
+  });
+  const accounts = accountsData?.accounts ?? [];
+
   // ── Mutations ──────────────────────────────────────────────────────────
+
+  const createSub = useMutation({
+    mutationFn: (body: Record<string, unknown>) =>
+      fetch('/api/subscriptions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }).then((r) => r.json()),
+    onSuccess: (res) => {
+      if (!res.success) {
+        showToast(res.error || 'Failed to add subscription.', 'error');
+        return;
+      }
+      qc.invalidateQueries({ queryKey: ['subscriptions'] });
+      qc.invalidateQueries({ queryKey: ['subscriptions-burden'] });
+      showToast('Subscription added! ✓', 'success');
+    },
+    onError: () => showToast('Failed to add subscription.', 'error'),
+  });
+
   const cancelSub = useMutation({
     mutationFn: (id: string) =>
       fetch(`/api/subscriptions/${id}`, { method: 'DELETE' }).then((r) => r.json()),
@@ -195,6 +246,7 @@ export default function SubsPage() {
   });
 
   // ── Derived data ───────────────────────────────────────────────────────
+
   const subs = subsData?.subscriptions ?? [];
   const active = subs.filter((s) => s.status === 'ACTIVE' || s.status === 'TRIAL');
   const paused = subs.filter((s) => s.status === 'PAUSED');
@@ -215,224 +267,370 @@ export default function SubsPage() {
         : burden.burdenPct > 10 ? 'bg-[#ff8800]'
           : 'bg-[#cafd00]';
 
+  // ── Modal openers ──────────────────────────────────────────────────────
+
+  function openCreateSub(prefill?: Partial<Suggestion>) {
+    const accountOptions = accounts.map((a) => ({
+      value: a.id,
+      label: `${a.name} (${formatMoney(a.currentBalance, currency)})`,
+    }));
+
+    setModal({
+      title: 'Add Subscription',
+      subtitle: 'Track a recurring charge.',
+      submitLabel: 'Add Subscription',
+      fields: [
+        {
+          name: 'name',
+          label: 'Subscription name',
+          type: 'text',
+          placeholder: 'Netflix Premium',
+          value: prefill?.merchant ?? '',
+          required: true,
+        },
+        {
+          name: 'provider',
+          label: 'Provider',
+          type: 'text',
+          placeholder: 'Netflix',
+          value: prefill?.merchant ?? '',
+          required: true,
+        },
+        {
+          name: 'amount',
+          label: `Amount (${currency})`,
+          type: 'number',
+          step: '0.01',
+          min: '0.01',
+          placeholder: '0.00',
+          value: prefill?.avgAmount ? String(prefill.avgAmount) : '',
+          required: true,
+          inputmode: 'decimal',
+        },
+        {
+          name: 'billingCycle',
+          label: 'Billing cycle',
+          type: 'select',
+          value: prefill?.suggestedCycle ?? 'MONTHLY',
+          options: BILLING_CYCLES,
+        },
+        {
+          name: 'category',
+          label: 'Category',
+          type: 'select',
+          value: 'ENTERTAINMENT',
+          options: SUB_CATEGORIES,
+        },
+        {
+          name: 'nextBillingDate',
+          label: 'Next billing date',
+          type: 'date',
+          value: dateInputDefault(30),
+          required: true,
+        },
+        ...(accountOptions.length > 0
+          ? [{
+            name: 'accountId',
+            label: 'Charge to account',
+            type: 'select' as const,
+            options: [
+              { value: '', label: '— No account —' },
+              ...accountOptions,
+            ],
+          }]
+          : []),
+        {
+          name: 'notes',
+          label: 'Notes (optional)',
+          type: 'textarea',
+          placeholder: 'Family plan, shared with 3 people.',
+        },
+      ],
+      onSubmit: (values) => {
+        const name = values.name?.trim();
+        const provider = values.provider?.trim();
+        const amount = Number(values.amount);
+
+        if (!name) {
+          showToast('Subscription name is required.', 'error');
+          return false;
+        }
+        if (!provider) {
+          showToast('Provider is required.', 'error');
+          return false;
+        }
+        if (!Number.isFinite(amount) || amount <= 0) {
+          showToast('Enter a valid amount.', 'error');
+          return false;
+        }
+        if (!values.nextBillingDate) {
+          showToast('Billing date is required.', 'error');
+          return false;
+        }
+
+        const body: Record<string, unknown> = {
+          name,
+          provider,
+          amount,
+          category: values.category || 'ENTERTAINMENT',
+          billingCycle: values.billingCycle || 'MONTHLY',
+          nextBillingDate: dateToISO(values.nextBillingDate),
+          autopay: false,
+        };
+        if (values.accountId) body.accountId = values.accountId;
+        if (values.notes?.trim()) body.notes = values.notes.trim();
+
+        createSub.mutate(body);
+        return true;
+      },
+    });
+  }
+
   // ── Render ─────────────────────────────────────────────────────────────
+
   return (
-    <motion.main
-      variants={containerVariants}
-      initial="hidden"
-      animate="show"
-      className="p-6 space-y-8 max-w-2xl mx-auto"
-    >
-      {/* Header */}
-      <motion.div variants={itemVariants}>
-        <h2 className="font-headline text-5xl font-black uppercase italic tracking-tighter leading-none">
-          SUBS
-        </h2>
-        <p className="font-bold text-on-surface-variant text-sm mt-1 uppercase tracking-wider">
-          {subsLoading
-            ? 'Loading subscriptions...'
-            : `${active.length} active subscription${active.length !== 1 ? 's' : ''}. No sneaky charges.`}
-        </p>
-      </motion.div>
-
-      {/* Burden stat cards */}
-      <motion.div variants={itemVariants} className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[
-          {
-            label: 'Monthly Cost',
-            value: burdenLoading ? '…' : burden ? formatMoney(burden.monthlyTotal, currency) : '—',
-            color: '',
-          },
-          {
-            label: 'Annual Cost',
-            value: burdenLoading ? '…' : burden ? formatMoney(burden.annualTotal, currency) : '—',
-            color: '',
-          },
-          {
-            label: 'Burden',
-            value: burdenLoading ? '…' : burden ? `${burden.burdenPct}%` : '—',
-            sub: burdenLabel,
-            color: burdenLoading ? '' : burden
-              ? burden.burdenPct > 20 ? 'bg-error-container'
-                : burden.burdenPct > 10 ? 'bg-primary-container'
-                  : 'bg-[#cafd00]'
-              : '',
-          },
-          {
-            label: 'Active Subs',
-            value: subsLoading ? '…' : active.length.toString(),
-            color: '',
-          },
-        ].map((card) => (
-          <div
-            key={card.label}
-            className={`border-4 border-inverse-surface hard-shadow p-4 text-center ${card.color || 'bg-white'}`}
-          >
-            <div className="font-headline font-black text-2xl">{card.value}</div>
-            {'sub' in card && card.sub && (
-              <div className="font-black text-xs uppercase opacity-70">{card.sub}</div>
-            )}
-            <div className="font-bold text-[10px] uppercase tracking-widest text-on-surface-variant mt-1">
-              {card.label}
-            </div>
-          </div>
-        ))}
-      </motion.div>
-
-      {/* Burden bar */}
-      {!burdenLoading && burden && (
-        <motion.div
-          variants={itemVariants}
-          className="bg-white border-4 border-inverse-surface hard-shadow p-4"
-        >
-          <div className="flex justify-between text-xs font-black uppercase mb-2">
-            <span>Income going to subscriptions</span>
-            <span>{burden.burdenPct}%</span>
-          </div>
-          <div className="w-full h-5 bg-surface-container border-2 border-inverse-surface overflow-hidden">
-            <motion.div
-              initial={{ width: 0 }}
-              animate={{ width: `${Math.min(burden.burdenPct, 100)}%` }}
-              transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
-              className={`h-full ${burdenBarColor} border-r-2 border-inverse-surface`}
-            />
-          </div>
-          {burden.burdenPct > 20 && (
-            <p className="text-xs font-bold text-error mt-2">
-              ⚠️ Your subscriptions are eating over 20% of income. Consider auditing them.
+    <>
+      <motion.main
+        variants={containerVariants}
+        initial="hidden"
+        animate="show"
+        className="p-6 space-y-8 max-w-2xl mx-auto"
+      >
+        {/* Header */}
+        <motion.div variants={itemVariants} className="flex justify-between items-start gap-4 flex-wrap">
+          <div>
+            <h2 className="font-headline text-5xl font-black uppercase italic tracking-tighter leading-none">
+              SUBS
+            </h2>
+            <p className="font-bold text-on-surface-variant text-sm mt-1 uppercase tracking-wider">
+              {subsLoading
+                ? 'Loading subscriptions...'
+                : `${active.length} active subscription${active.length !== 1 ? 's' : ''}. No sneaky charges.`}
             </p>
-          )}
+          </div>
+
+          {/* ADD SUB button */}
+          <button
+            onClick={() => openCreateSub()}
+            className="interactive-lift bg-primary-container border-4 border-inverse-surface px-5 py-3 hard-shadow flex items-center gap-2 cursor-pointer shrink-0"
+          >
+            <span className="material-symbols-outlined text-xl leading-none">add</span>
+            <span className="font-headline font-black text-sm uppercase">Add Sub</span>
+          </button>
         </motion.div>
-      )}
 
-      {/* Detected recurring suggestions */}
-      <AnimatePresence>
-        {suggestions.length > 0 && (
-          <motion.section
-            key="suggestions"
+        {/* Burden stat cards */}
+        <motion.div variants={itemVariants} className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            {
+              label: 'Monthly Cost',
+              value: burdenLoading ? '…' : burden ? formatMoney(burden.monthlyTotal, currency) : '—',
+              color: '',
+            },
+            {
+              label: 'Annual Cost',
+              value: burdenLoading ? '…' : burden ? formatMoney(burden.annualTotal, currency) : '—',
+              color: '',
+            },
+            {
+              label: 'Burden',
+              value: burdenLoading ? '…' : burden ? `${burden.burdenPct}%` : '—',
+              sub: burdenLabel,
+              color: burdenLoading ? '' : burden
+                ? burden.burdenPct > 20 ? 'bg-error-container'
+                  : burden.burdenPct > 10 ? 'bg-primary-container'
+                    : 'bg-[#cafd00]'
+                : '',
+            },
+            {
+              label: 'Active Subs',
+              value: subsLoading ? '…' : active.length.toString(),
+              color: '',
+            },
+          ].map((card) => (
+            <div
+              key={card.label}
+              className={`border-4 border-inverse-surface hard-shadow p-4 text-center ${card.color || 'bg-white'}`}
+            >
+              <div className="font-headline font-black text-2xl">{card.value}</div>
+              {'sub' in card && card.sub && (
+                <div className="font-black text-xs uppercase opacity-70">{card.sub}</div>
+              )}
+              <div className="font-bold text-[10px] uppercase tracking-widest text-on-surface-variant mt-1">
+                {card.label}
+              </div>
+            </div>
+          ))}
+        </motion.div>
+
+        {/* Burden bar */}
+        {!burdenLoading && burden && (
+          <motion.div
             variants={itemVariants}
-            initial="hidden"
-            animate="show"
-            exit={{ opacity: 0, height: 0 }}
-            className="space-y-3"
+            className="bg-white border-4 border-inverse-surface hard-shadow p-4"
           >
-            <div className="flex items-center gap-3">
-              <h3 className="font-headline font-black text-lg uppercase underline decoration-secondary decoration-4">
-                🤖 Detected Recurring
-              </h3>
-              <span className="text-xs font-black bg-secondary-container px-2 py-1 border border-inverse-surface">
-                {suggestions.length} found
-              </span>
+            <div className="flex justify-between text-xs font-black uppercase mb-2">
+              <span>Income going to subscriptions</span>
+              <span>{burden.burdenPct}%</span>
             </div>
-            <p className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">
-              These look like subscriptions you haven't tracked yet. Tap to track.
-            </p>
-            <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1">
-              <AnimatePresence mode="popLayout">
-                {suggestions.map((s) => (
-                  <motion.div
-                    key={s.merchant}
-                    layout
-                    exit={{ opacity: 0, scale: 0.88, transition: { duration: 0.15 } }}
-                    className="flex-shrink-0 bg-secondary-container border-4 border-inverse-surface p-4 hard-shadow min-w-[180px]"
-                  >
-                    <p className="font-headline font-black text-base uppercase truncate">
-                      {s.merchant}
-                    </p>
-                    <p className="font-bold text-sm mt-1">
-                      {formatMoney(s.avgAmount, currency)}
-                      <span className="text-xs opacity-60">
-                        /{s.suggestedCycle.toLowerCase()}
-                      </span>
-                    </p>
-                    <p className="text-[10px] font-bold uppercase tracking-wider opacity-60 mt-1">
-                      {s.occurrences}× detected
-                    </p>
-                    <button
-                      onClick={() => dismissSuggestion(s.merchant)}
-                      className="mt-3 text-[10px] font-black uppercase underline opacity-60 hover:opacity-100 cursor-pointer transition-opacity"
-                      aria-label={`Dismiss suggestion for ${s.merchant}`}
+            <div className="w-full h-5 bg-surface-container border-2 border-inverse-surface overflow-hidden">
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${Math.min(burden.burdenPct, 100)}%` }}
+                transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+                className={`h-full ${burdenBarColor} border-r-2 border-inverse-surface`}
+              />
+            </div>
+            {burden.burdenPct > 20 && (
+              <p className="text-xs font-bold text-error mt-2">
+                ⚠️ Your subscriptions are eating over 20% of income. Consider auditing them.
+              </p>
+            )}
+          </motion.div>
+        )}
+
+        {/* Detected recurring suggestions */}
+        <AnimatePresence>
+          {suggestions.length > 0 && (
+            <motion.section
+              key="suggestions"
+              variants={itemVariants}
+              initial="hidden"
+              animate="show"
+              exit={{ opacity: 0, height: 0 }}
+              className="space-y-3"
+            >
+              <div className="flex items-center gap-3">
+                <h3 className="font-headline font-black text-lg uppercase underline decoration-secondary decoration-4">
+                  🤖 Detected Recurring
+                </h3>
+                <span className="text-xs font-black bg-secondary-container px-2 py-1 border border-inverse-surface">
+                  {suggestions.length} found
+                </span>
+              </div>
+              <p className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">
+                These look like subscriptions you haven't tracked yet.
+              </p>
+              <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1">
+                <AnimatePresence mode="popLayout">
+                  {suggestions.map((s) => (
+                    <motion.div
+                      key={s.merchant}
+                      layout
+                      exit={{ opacity: 0, scale: 0.88, transition: { duration: 0.15 } }}
+                      className="flex-shrink-0 bg-secondary-container border-4 border-inverse-surface p-4 hard-shadow min-w-[180px]"
                     >
-                      Dismiss
-                    </button>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </div>
+                      <p className="font-headline font-black text-base uppercase truncate">
+                        {s.merchant}
+                      </p>
+                      <p className="font-bold text-sm mt-1">
+                        {formatMoney(s.avgAmount, currency)}
+                        <span className="text-xs opacity-60">/{s.suggestedCycle.toLowerCase()}</span>
+                      </p>
+                      <p className="text-[10px] font-bold uppercase tracking-wider opacity-60 mt-1">
+                        {s.occurrences}× detected
+                      </p>
+                      <div className="mt-3 flex flex-col gap-1.5">
+                        {/* One-tap track — pre-fills the modal */}
+                        <button
+                          onClick={() => openCreateSub(s)}
+                          className="text-[10px] font-black uppercase bg-primary-container border border-inverse-surface px-2 py-1 cursor-pointer hover:bg-white transition-colors"
+                        >
+                          Track It
+                        </button>
+                        <button
+                          onClick={() => dismissSuggestion(s.merchant)}
+                          className="text-[10px] font-black uppercase underline opacity-60 hover:opacity-100 cursor-pointer transition-opacity"
+                          aria-label={`Dismiss suggestion for ${s.merchant}`}
+                        >
+                          Dismiss
+                        </button>
+                      </div>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </div>
+            </motion.section>
+          )}
+        </AnimatePresence>
+
+        {/* Skeleton loaders */}
+        {subsLoading && (
+          <div className="space-y-3">
+            {[0, 1, 2].map((i) => <SubSkeleton key={i} />)}
+          </div>
+        )}
+
+        {/* Active subscriptions */}
+        {!subsLoading && active.length > 0 && (
+          <motion.section variants={itemVariants} className="space-y-3">
+            <h3 className="font-headline font-black text-xl uppercase underline decoration-primary decoration-4">
+              ✅ Active
+            </h3>
+            <AnimatePresence mode="popLayout">
+              {active.map((sub, i) => (
+                <SubCard
+                  key={sub.id}
+                  sub={sub}
+                  currency={currency}
+                  colorAccent={CYCLE_COLORS[i % CYCLE_COLORS.length]}
+                  onPause={() => pauseSub.mutate(sub.id)}
+                  onCancel={() => cancelSub.mutate(sub.id)}
+                  isPending={pauseSub.isPending || cancelSub.isPending}
+                />
+              ))}
+            </AnimatePresence>
           </motion.section>
         )}
-      </AnimatePresence>
 
-      {/* Skeleton loaders */}
-      {subsLoading && (
-        <div className="space-y-3">
-          {[0, 1, 2].map((i) => (
-            <SubSkeleton key={i} />
-          ))}
-        </div>
-      )}
+        {/* Paused subscriptions */}
+        {!subsLoading && paused.length > 0 && (
+          <motion.section variants={itemVariants} className="space-y-3">
+            <h3 className="font-headline font-black text-xl uppercase underline decoration-surface-variant decoration-4 opacity-60">
+              ⏸ Paused
+            </h3>
+            <AnimatePresence mode="popLayout">
+              {paused.map((sub, i) => (
+                <SubCard
+                  key={sub.id}
+                  sub={sub}
+                  currency={currency}
+                  colorAccent="bg-surface-container"
+                  onPause={() => resumeSub.mutate(sub.id)}
+                  pauseLabel="Resume"
+                  onCancel={() => cancelSub.mutate(sub.id)}
+                  isPending={resumeSub.isPending || cancelSub.isPending}
+                />
+              ))}
+            </AnimatePresence>
+          </motion.section>
+        )}
 
-      {/* Active subscriptions */}
-      {!subsLoading && active.length > 0 && (
-        <motion.section variants={itemVariants} className="space-y-3">
-          <h3 className="font-headline font-black text-xl uppercase underline decoration-primary decoration-4">
-            ✅ Active
-          </h3>
-          <AnimatePresence mode="popLayout">
-            {active.map((sub, i) => (
-              <SubCard
-                key={sub.id}
-                sub={sub}
-                currency={currency}
-                colorAccent={CYCLE_COLORS[i % CYCLE_COLORS.length]}
-                onPause={() => pauseSub.mutate(sub.id)}
-                onCancel={() => cancelSub.mutate(sub.id)}
-                isPending={pauseSub.isPending || cancelSub.isPending}
-              />
-            ))}
-          </AnimatePresence>
-        </motion.section>
-      )}
+        {/* Empty state */}
+        {!subsLoading && subs.length === 0 && (
+          <motion.div
+            variants={itemVariants}
+            className="border-4 border-dashed border-inverse-surface p-12 text-center"
+          >
+            <div className="text-5xl mb-4">💸</div>
+            <p className="font-headline font-black text-2xl uppercase mb-2">
+              No Subscriptions Tracked
+            </p>
+            <p className="font-bold text-on-surface-variant text-sm max-w-xs mx-auto leading-relaxed mb-6">
+              Add your recurring subscriptions to stop mystery charges sneaking through.
+            </p>
+            <button
+              onClick={() => openCreateSub()}
+              className="interactive-lift bg-primary-container border-4 border-inverse-surface px-6 py-3 hard-shadow font-headline font-black text-sm uppercase cursor-pointer"
+            >
+              + Add Your First Sub
+            </button>
+          </motion.div>
+        )}
+      </motion.main>
 
-      {/* Paused subscriptions */}
-      {!subsLoading && paused.length > 0 && (
-        <motion.section variants={itemVariants} className="space-y-3">
-          <h3 className="font-headline font-black text-xl uppercase underline decoration-surface-variant decoration-4 opacity-60">
-            ⏸ Paused
-          </h3>
-          <AnimatePresence mode="popLayout">
-            {paused.map((sub, i) => (
-              <SubCard
-                key={sub.id}
-                sub={sub}
-                currency={currency}
-                colorAccent="bg-surface-container"
-                onPause={() => resumeSub.mutate(sub.id)}
-                pauseLabel="Resume"
-                onCancel={() => cancelSub.mutate(sub.id)}
-                isPending={resumeSub.isPending || cancelSub.isPending}
-              />
-            ))}
-          </AnimatePresence>
-        </motion.section>
-      )}
-
-      {/* Empty state — only after load completes */}
-      {!subsLoading && subs.length === 0 && (
-        <motion.div
-          variants={itemVariants}
-          className="border-4 border-dashed border-inverse-surface p-12 text-center"
-        >
-          <div className="text-5xl mb-4">💸</div>
-          <p className="font-headline font-black text-2xl uppercase mb-2">
-            No Subscriptions Tracked
-          </p>
-          <p className="font-bold text-on-surface-variant text-sm max-w-xs mx-auto leading-relaxed">
-            Add your first subscription to stop mystery charges sneaking through.
-          </p>
-        </motion.div>
-      )}
-    </motion.main>
+      <ActionModal config={modal} onClose={() => setModal(null)} />
+    </>
   );
 }
 
@@ -479,9 +677,7 @@ function SubCard({
       {/* Info */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
-          <p className="font-headline font-black text-base uppercase truncate">
-            {sub.name}
-          </p>
+          <p className="font-headline font-black text-base uppercase truncate">{sub.name}</p>
           <span
             className={`text-[9px] font-black px-1.5 py-0.5 border uppercase shrink-0 ${STATUS_STYLES[sub.status] ?? 'bg-surface-container border-inverse-surface'
               }`}
@@ -498,9 +694,7 @@ function SubCard({
       <div className="text-right shrink-0 mr-1">
         <p className="font-headline font-black text-xl leading-tight">
           {formatMoney(sub.amount, currency as 'USD')}
-          <span className="text-xs font-bold opacity-60">
-            {cycleLabel(sub.billingCycle)}
-          </span>
+          <span className="text-xs font-bold opacity-60">{cycleLabel(sub.billingCycle)}</span>
         </p>
       </div>
 

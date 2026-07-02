@@ -19,6 +19,14 @@ interface Bill {
   notes: string | null;
 }
 
+interface Account {
+  id: string;
+  name: string;
+  type: string;
+  currentBalance: number;
+  colorTheme: string | null;
+}
+
 type ModalConfig = React.ComponentProps<typeof ActionModal>['config'];
 
 const containerVariants = {
@@ -30,6 +38,21 @@ const itemVariants = {
   hidden: { opacity: 0, x: -16 },
   show: { opacity: 1, x: 0, transition: { type: 'spring' as const, stiffness: 280, damping: 24 } },
 } as const;
+
+const BILL_CATEGORIES = [
+  { value: 'BILLS', label: '🧾 Bills' },
+  { value: 'ENTERTAINMENT', label: '🎮 Entertainment' },
+  { value: 'FOOD', label: '🍔 Food' },
+  { value: 'TRANSPORT', label: '🚌 Transport' },
+  { value: 'OTHER', label: '📦 Other' },
+];
+
+const BILLING_CYCLES = [
+  { value: 'WEEKLY', label: 'Weekly' },
+  { value: 'MONTHLY', label: 'Monthly' },
+  { value: 'QUARTERLY', label: 'Quarterly' },
+  { value: 'YEARLY', label: 'Yearly' },
+];
 
 function daysUntil(dateStr: string): number {
   const due = new Date(dateStr);
@@ -47,7 +70,18 @@ function urgencyClasses(days: number): { bg: string; label: string } {
   return { bg: 'bg-surface-container border-inverse-surface', label: `${days}d left` };
 }
 
-// Skeleton bill row
+// Returns today + n days in YYYY-MM-DD for date input defaultValue
+function dateInputDefault(daysFromNow = 30): string {
+  const d = new Date();
+  d.setDate(d.getDate() + daysFromNow);
+  return d.toISOString().slice(0, 10);
+}
+
+// Converts YYYY-MM-DD to a full ISO datetime string the API expects
+function dateToISO(dateStr: string): string {
+  return new Date(`${dateStr}T12:00:00`).toISOString();
+}
+
 function BillSkeleton() {
   return (
     <div className="bg-white border-4 border-inverse-surface p-5 flex items-center gap-4 animate-pulse">
@@ -74,9 +108,35 @@ export default function BillsPage() {
   const { data, isLoading } = useQuery<{ bills: Bill[] }>({
     queryKey: ['bills'],
     queryFn: () =>
-      fetch('/api/bills')
-        .then((r) => r.json())
-        .then((d) => d.data),
+      fetch('/api/bills').then((r) => r.json()).then((d) => d.data),
+  });
+
+  // Fetch accounts for the account selector in create/pay modals
+  const { data: accountsData } = useQuery<{ accounts: Account[] }>({
+    queryKey: ['accounts'],
+    queryFn: () =>
+      fetch('/api/accounts').then((r) => r.json()).then((d) => d.data),
+  });
+  const accounts = accountsData?.accounts ?? [];
+
+  // ── Mutations ──────────────────────────────────────────────────────────
+
+  const createBill = useMutation({
+    mutationFn: (body: Record<string, unknown>) =>
+      fetch('/api/bills', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }).then((r) => r.json()),
+    onSuccess: (res) => {
+      if (!res.success) {
+        showToast(res.error || 'Failed to add bill.', 'error');
+        return;
+      }
+      qc.invalidateQueries({ queryKey: ['bills'] });
+      showToast('Bill added! ✓', 'success');
+    },
+    onError: () => showToast('Failed to add bill.', 'error'),
   });
 
   const markPaid = useMutation({
@@ -108,8 +168,122 @@ export default function BillsPage() {
   const overdue = bills.filter((b) => daysUntil(b.nextDueDate) < 0);
   const upcoming = bills.filter((b) => daysUntil(b.nextDueDate) >= 0);
 
-  // Open mark-paid modal using the shared ActionModal (gets focus trap + scroll lock for free)
+  // ── Modal openers ──────────────────────────────────────────────────────
+
+  function openCreateBill() {
+    const accountOptions = accounts.map((a) => ({
+      value: a.id,
+      label: `${a.name} (${formatMoney(a.currentBalance, currency)})`,
+    }));
+
+    setModal({
+      title: 'Add Bill',
+      subtitle: 'Track a recurring obligation.',
+      submitLabel: 'Add Bill',
+      fields: [
+        {
+          name: 'name',
+          label: 'Bill name',
+          type: 'text',
+          placeholder: 'Electric Bill',
+          required: true,
+        },
+        {
+          name: 'category',
+          label: 'Category',
+          type: 'select',
+          value: 'BILLS',
+          options: BILL_CATEGORIES,
+        },
+        {
+          name: 'amountExpected',
+          label: `Expected amount (${currency})`,
+          type: 'number',
+          step: '0.01',
+          min: '0.01',
+          placeholder: '0.00',
+          inputmode: 'decimal',
+          hint: 'Leave blank if the amount varies each month.',
+        },
+        {
+          name: 'billingCycle',
+          label: 'Billing cycle',
+          type: 'select',
+          value: 'MONTHLY',
+          options: BILLING_CYCLES,
+        },
+        {
+          name: 'nextDueDate',
+          label: 'Next due date',
+          type: 'date',
+          value: dateInputDefault(30),
+          required: true,
+        },
+        ...(accountOptions.length > 0
+          ? [{
+            name: 'accountId',
+            label: 'Pay from account',
+            type: 'select' as const,
+            options: [
+              { value: '', label: '— No account —' },
+              ...accountOptions,
+            ],
+          }]
+          : []),
+        {
+          name: 'reminderDaysBefore',
+          label: 'Remind me (days before)',
+          type: 'number',
+          value: '3',
+          min: '0',
+          max: '30',
+          placeholder: '3',
+        },
+        {
+          name: 'notes',
+          label: 'Notes (optional)',
+          type: 'textarea',
+          placeholder: 'Auto-charged from checking account.',
+        },
+      ],
+      onSubmit: (values) => {
+        const name = values.name?.trim();
+        if (!name) {
+          showToast('Bill name is required.', 'error');
+          return false;
+        }
+        if (!values.nextDueDate) {
+          showToast('Due date is required.', 'error');
+          return false;
+        }
+
+        const body: Record<string, unknown> = {
+          name,
+          category: values.category || 'BILLS',
+          billingCycle: values.billingCycle || 'MONTHLY',
+          nextDueDate: dateToISO(values.nextDueDate),
+          autopay: false,
+          reminderDaysBefore: Number(values.reminderDaysBefore || 3),
+        };
+
+        if (values.amountExpected && Number(values.amountExpected) > 0) {
+          body.amountExpected = Number(values.amountExpected);
+        }
+        if (values.accountId) body.accountId = values.accountId;
+        if (values.notes?.trim()) body.notes = values.notes.trim();
+
+        createBill.mutate(body);
+        return true;
+      },
+    });
+  }
+
   function openMarkPaid(bill: Bill) {
+    const accountOptions = accounts.map((a) => ({
+      value: a.id,
+      label: `${a.name} (${formatMoney(a.currentBalance, currency)})`,
+    }));
+
     setModal({
       title: 'Mark Bill Paid',
       subtitle: bill.name,
@@ -121,8 +295,6 @@ export default function BillsPage() {
           type: 'number',
           step: '0.01',
           min: '0.01',
-          // Pre-fill with expected amount if available, otherwise leave empty
-          // so the user must consciously enter the actual amount paid
           value: bill.amountExpected != null ? String(bill.amountExpected) : '',
           placeholder: '0.00',
           required: true,
@@ -131,6 +303,17 @@ export default function BillsPage() {
             ? `Expected: ${formatMoney(bill.amountExpected, currency)}`
             : 'Enter the actual amount you paid.',
         },
+        ...(accountOptions.length > 0
+          ? [{
+            name: 'accountId',
+            label: 'Deduct from account',
+            type: 'select' as const,
+            options: [
+              { value: '', label: '— No account —' },
+              ...accountOptions,
+            ],
+          }]
+          : []),
       ],
       onSubmit: (values) => {
         const amt = parseFloat(values.amountPaid);
@@ -144,7 +327,7 @@ export default function BillsPage() {
     });
   }
 
-  // ── Render ────────────────────────────────────────────────────────────
+  // ── Render ─────────────────────────────────────────────────────────────
 
   return (
     <>
@@ -155,19 +338,30 @@ export default function BillsPage() {
         className="p-6 space-y-8 max-w-2xl mx-auto"
       >
         {/* Header */}
-        <motion.div variants={itemVariants}>
-          <h2 className="font-headline text-5xl font-black uppercase italic tracking-tighter leading-none">
-            BILLS
-          </h2>
-          <p className="font-bold text-on-surface-variant text-sm mt-1 uppercase tracking-wider">
-            {isLoading
-              ? 'Loading your bills...'
-              : overdue.length > 0
-                ? `⚠️ ${overdue.length} overdue — handle immediately.`
-                : upcoming.length > 0
-                  ? `${upcoming.length} upcoming obligation${upcoming.length > 1 ? 's' : ''}.`
-                  : 'Clear board. No active bills.'}
-          </p>
+        <motion.div variants={itemVariants} className="flex justify-between items-start gap-4 flex-wrap">
+          <div>
+            <h2 className="font-headline text-5xl font-black uppercase italic tracking-tighter leading-none">
+              BILLS
+            </h2>
+            <p className="font-bold text-on-surface-variant text-sm mt-1 uppercase tracking-wider">
+              {isLoading
+                ? 'Loading your bills...'
+                : overdue.length > 0
+                  ? `⚠️ ${overdue.length} overdue — handle immediately.`
+                  : upcoming.length > 0
+                    ? `${upcoming.length} upcoming obligation${upcoming.length > 1 ? 's' : ''}.`
+                    : 'Clear board. No active bills.'}
+            </p>
+          </div>
+
+          {/* ADD BILL button — primary CTA */}
+          <button
+            onClick={openCreateBill}
+            className="interactive-lift bg-primary-container border-4 border-inverse-surface px-5 py-3 hard-shadow flex items-center gap-2 cursor-pointer shrink-0"
+          >
+            <span className="material-symbols-outlined text-xl leading-none">add</span>
+            <span className="font-headline font-black text-sm uppercase">Add Bill</span>
+          </button>
         </motion.div>
 
         {/* Stats row — only when data loaded and bills exist */}
@@ -211,9 +405,7 @@ export default function BillsPage() {
         {/* Skeleton loaders */}
         {isLoading && (
           <div className="space-y-3">
-            {[0, 1, 2].map((i) => (
-              <BillSkeleton key={i} />
-            ))}
+            {[0, 1, 2].map((i) => <BillSkeleton key={i} />)}
           </div>
         )}
 
@@ -259,23 +451,27 @@ export default function BillsPage() {
           </motion.section>
         )}
 
-        {/* Empty state — only after load completes */}
+        {/* Empty state */}
         {!isLoading && bills.length === 0 && (
           <motion.div
             variants={itemVariants}
             className="border-4 border-dashed border-inverse-surface p-12 text-center"
           >
-            <div className="text-5xl mb-4">🎉</div>
-            <p className="font-headline font-black text-2xl uppercase mb-2">Clear Board!</p>
-            <p className="font-bold text-on-surface-variant text-sm max-w-xs mx-auto leading-relaxed">
-              No active bills tracked. Add bills from the API or check back after your
-              next billing cycle.
+            <div className="text-5xl mb-4">🧾</div>
+            <p className="font-headline font-black text-2xl uppercase mb-2">No Bills Yet</p>
+            <p className="font-bold text-on-surface-variant text-sm max-w-xs mx-auto leading-relaxed mb-6">
+              Add your recurring bills to stay ahead of every due date.
             </p>
+            <button
+              onClick={openCreateBill}
+              className="interactive-lift bg-primary-container border-4 border-inverse-surface px-6 py-3 hard-shadow font-headline font-black text-sm uppercase cursor-pointer"
+            >
+              + Add Your First Bill
+            </button>
           </motion.div>
         )}
       </motion.main>
 
-      {/* Shared ActionModal — gets focus trap + body scroll lock automatically */}
       <ActionModal config={modal} onClose={() => setModal(null)} />
     </>
   );
