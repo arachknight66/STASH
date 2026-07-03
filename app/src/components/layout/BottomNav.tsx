@@ -4,7 +4,7 @@ import { useAppStore, type Page } from '@/store/app';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useRef } from 'react';
 
-// 5 primary nav items — vault replaces intel (intel moves to FAB)
+// 5 primary nav items
 const NAV_ITEMS: { id: Page; label: string; icon: string }[] = [
   { id: 'dash', label: 'Dash', icon: 'grid_view' },
   { id: 'feed', label: 'Feed', icon: 'receipt_long' },
@@ -13,7 +13,7 @@ const NAV_ITEMS: { id: Page; label: string; icon: string }[] = [
   { id: 'vault', label: 'Vault', icon: 'account_balance_wallet' },
 ];
 
-// FAB quick actions — subs + intel moved here
+// FAB quick actions — secondary pages and transaction shortcuts
 const FAB_ACTIONS: {
   id: string;
   label: string;
@@ -24,6 +24,7 @@ const FAB_ACTIONS: {
     { id: 'spend', label: 'Quick Spend', icon: 'bolt', action: 'quick_spend' },
     { id: 'income', label: 'Load Up', icon: 'add_card', action: 'load_up' },
     { id: 'boost', label: 'Boost', icon: 'rocket_launch', action: 'boost' },
+    { id: 'budgets', label: 'Budgets', icon: 'donut_small', page: 'budgets' },
     { id: 'subs', label: 'Subs', icon: 'autorenew', page: 'subs' },
     { id: 'intel', label: 'Intel', icon: 'analytics', page: 'intel' },
   ];
@@ -64,7 +65,7 @@ export default function BottomNav({ onFabAction }: BottomNavProps) {
         )}
       </AnimatePresence>
 
-      {/* FAB action menu */}
+      {/* FAB action menu — scrollable if needed on very short screens */}
       <AnimatePresence>
         {fabOpen && (
           <motion.div
@@ -73,7 +74,7 @@ export default function BottomNav({ onFabAction }: BottomNavProps) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 12, scale: 0.94 }}
             transition={{ type: 'spring', stiffness: 380, damping: 28 }}
-            className="fixed bottom-[88px] right-4 z-[48] flex flex-col-reverse gap-3"
+            className="fixed bottom-[88px] right-4 z-[48] flex flex-col-reverse gap-3 max-h-[70dvh] overflow-y-auto pb-1"
           >
             {FAB_ACTIONS.map((item, i) => (
               <motion.button
@@ -85,7 +86,7 @@ export default function BottomNav({ onFabAction }: BottomNavProps) {
                   type: 'spring',
                   stiffness: 420,
                   damping: 26,
-                  delay: i * 0.04,
+                  delay: i * 0.035,
                 }}
                 onClick={() => handleFabAction(item)}
                 className="flex items-center gap-3 self-end cursor-pointer group"
@@ -93,7 +94,7 @@ export default function BottomNav({ onFabAction }: BottomNavProps) {
                 <span className="bg-inverse-surface text-white dark:bg-white dark:text-inverse-surface font-headline font-black text-xs uppercase tracking-wider px-3 py-1.5 border-2 border-inverse-surface hard-shadow-sm whitespace-nowrap group-hover:-translate-x-0.5 group-hover:-translate-y-0.5 transition-transform">
                   {item.label}
                 </span>
-                <div className="w-12 h-12 bg-white border-4 border-inverse-surface hard-shadow flex items-center justify-center group-hover:-translate-x-0.5 group-hover:-translate-y-0.5 transition-transform">
+                <div className="w-12 h-12 bg-white border-4 border-inverse-surface hard-shadow flex items-center justify-center group-hover:-translate-x-0.5 group-hover:-translate-y-0.5 transition-transform shrink-0">
                   <span
                     className="material-symbols-outlined text-inverse-surface text-xl"
                     style={{ fontVariationSettings: "'FILL' 1,'wght' 700,'GRAD' 0,'opsz' 48" }}
@@ -149,7 +150,6 @@ export default function BottomNav({ onFabAction }: BottomNavProps) {
                 aria-label={item.label}
                 aria-current={isActive ? 'page' : undefined}
               >
-                {/* Active pill */}
                 {isActive && (
                   <motion.div
                     layoutId="activeNavPill"

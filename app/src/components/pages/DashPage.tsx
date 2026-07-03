@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAppStore } from '@/store/app';
-import { useStats, useTransactions, useCreateTransaction } from '@/hooks/useStash';
+import { useStats, useTransactions, useCreateTransaction, useBudgets, type EnrichedBudget } from '@/hooks/useStash';
 import { useBuckets, useBoostBucket } from '@/hooks/useStash';
 import { formatMoney, formatCompactMoney, displayToUsd } from '@/lib/currencies';
 import { CATEGORY_META } from '@/lib/constants';
@@ -62,6 +62,15 @@ export default function DashPage() {
   const { data: stats, isLoading: statsLoading } = useStats();
   const { data: txData } = useTransactions({ limit: '3' });
   const { data: buckets } = useBuckets();
+  const { data: budgets = [] } = useBudgets();
+
+  // Build a map from category → budget for quick lookup in Heat Map cards
+  const budgetByCategory: Record<string, EnrichedBudget> = {};
+  budgets.forEach((b) => {
+    if (b.scope === 'CATEGORY' && b.category) {
+      budgetByCategory[b.category] = b;
+    }
+  });
   const createTx = useCreateTransaction();
   const boostBucket = useBoostBucket();
 
@@ -317,31 +326,74 @@ export default function DashPage() {
         <motion.section variants={itemVariants} className="grid grid-cols-1 md:grid-cols-4 gap-6">
           {/* Heat Map */}
           <div className="md:col-span-3 bg-white border-4 border-inverse-surface hard-shadow-lg p-6">
-            <div className="flex justify-between items-center mb-5">
+            <div className="flex justify-between items-center mb-5 flex-wrap gap-2">
               <h3 className="font-headline text-2xl font-black uppercase italic underline decoration-secondary decoration-4">
                 Heat Map
               </h3>
-              <span className="text-[10px] font-black px-3 py-1 bg-inverse-surface text-white uppercase tracking-widest">
-                Last 30 Days
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black px-3 py-1 bg-inverse-surface text-white uppercase tracking-widest">
+                  Last 30 Days
+                </span>
+                <button
+                  onClick={() => navigate('budgets')}
+                  className="text-[10px] font-black uppercase tracking-wider text-on-surface-variant hover:text-primary transition-colors cursor-pointer underline"
+                >
+                  Manage Budgets
+                </button>
+              </div>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {topCategories.length > 0
                 ? topCategories.map(([cat, amt]) => {
                   const meta = CATEGORY_META[cat] ?? CATEGORY_META.OTHER;
+                  const budget = budgetByCategory[cat];
+                  const budgetPct = budget
+                    ? Math.min(Math.round((amt / budget.amount) * 100), 100)
+                    : null;
+                  const isOver = budget ? amt > budget.amount : false;
+                  const isWarn = budget ? (budgetPct ?? 0) >= budget.alertThresholdPct && !isOver : false;
+                  const barColor = isOver ? 'bg-error' : isWarn ? 'bg-[#ff8800]' : 'bg-primary';
+
                   return (
-                    <div
+                    <button
                       key={cat}
-                      className={`${CATEGORY_COLORS[cat] ?? 'bg-surface-container'} border-2 border-inverse-surface p-4 hard-shadow-sm interactive-soft cursor-pointer`}
+                      onClick={() => navigate('budgets')}
+                      className={`${CATEGORY_COLORS[cat] ?? 'bg-surface-container'} border-2 border-inverse-surface p-4 hard-shadow-sm interactive-soft cursor-pointer text-left w-full`}
                     >
-                      <div className="text-3xl mb-2">{meta.emoji}</div>
-                      <div className="font-headline font-black text-sm uppercase truncate" title={meta.label}>
+                      <div className="flex justify-between items-start mb-1.5">
+                        <div className="text-2xl">{meta.emoji}</div>
+                        {isOver && (
+                          <span className="text-[8px] font-black uppercase tracking-wider text-error bg-white px-1 py-0.5 border border-error leading-none">
+                            Over
+                          </span>
+                        )}
+                        {isWarn && !isOver && (
+                          <span className="text-[8px] font-black uppercase tracking-wider text-[#7d4e00] bg-white px-1 py-0.5 border border-[#ff8800] leading-none">
+                            Warn
+                          </span>
+                        )}
+                      </div>
+                      <div className="font-headline font-black text-sm uppercase truncate leading-tight" title={meta.label}>
                         {meta.label}
                       </div>
-                      <div className="text-xs font-bold opacity-70 mt-1">
+                      <div className="text-xs font-bold opacity-70 mt-0.5">
                         {formatCompactMoney(amt, currency)}
+                        {budget && (
+                          <span className="opacity-60"> / {formatCompactMoney(budget.amount, currency)}</span>
+                        )}
                       </div>
-                    </div>
+                      {/* Mini budget progress bar — only shown if budget exists */}
+                      {budgetPct !== null && (
+                        <div className="w-full h-1.5 bg-black/10 mt-2 overflow-hidden">
+                          <motion.div
+                            className={`h-full ${barColor}`}
+                            initial={{ width: 0 }}
+                            animate={{ width: `${budgetPct}%` }}
+                            transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1], delay: 0.3 }}
+                          />
+                        </div>
+                      )}
+                    </button>
                   );
                 })
                 : [0, 1, 2, 3].map((i) => (
