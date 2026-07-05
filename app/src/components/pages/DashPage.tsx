@@ -1,30 +1,37 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAppStore } from '@/store/app';
-import { useStats, useTransactions, useCreateTransaction, useBudgets, type EnrichedBudget } from '@/hooks/useStash';
-import { useBuckets, useBoostBucket } from '@/hooks/useStash';
+import {
+  useStats,
+  useTransactions,
+  useCreateTransaction,
+  useBudgets,
+  useBuckets,
+  useBoostBucket,
+  type EnrichedBudget,
+} from '@/hooks/useStash';
 import { formatMoney, formatCompactMoney, displayToUsd } from '@/lib/currencies';
 import { CATEGORY_META } from '@/lib/constants';
 import ActionModal from '@/components/ui/ActionModal';
-import { motion } from 'framer-motion';
+import TransactionDetailDrawer, {
+  type DrawerTransaction,
+} from '@/components/ui/TransactionDetailDrawer';
+import { motion, AnimatePresence } from 'framer-motion';
+
+// ─── Animation variants ───────────────────────────────────────────────────────
 
 const containerVariants = {
   hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: { staggerChildren: 0.07 },
-  },
+  show: { opacity: 1, transition: { staggerChildren: 0.06 } },
 } as const;
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 18 },
-  show: {
-    opacity: 1,
-    y: 0,
-    transition: { type: 'spring' as const, stiffness: 280, damping: 24 },
-  },
+  hidden: { opacity: 0, y: 16 },
+  show: { opacity: 1, y: 0, transition: { type: 'spring' as const, stiffness: 300, damping: 26 } },
 } as const;
+
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 type ModalConfig = React.ComponentProps<typeof ActionModal>['config'];
 
@@ -52,6 +59,73 @@ const RECEIPT_ICON_COLORS: Record<string, string> = {
   OTHER: 'bg-surface-variant text-on-surface',
 };
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function formatTxDate(d: Date | string): string {
+  return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function getMonthYear(): string {
+  return new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+}
+
+function savingsBarColor(pct: number): string {
+  if (pct <= 0) return 'bg-error';
+  if (pct < 20) return 'bg-[#ff8800]';
+  return 'bg-[#cafd00]';
+}
+
+// Group receipts by TODAY / YESTERDAY / date label
+function groupByDate(items: any[]): { label: string; items: any[] }[] {
+  const now = new Date();
+  const todayStr = now.toDateString();
+  const yest = new Date(now);
+  yest.setDate(yest.getDate() - 1);
+  const yestStr = yest.toDateString();
+
+  const groups: Record<string, any[]> = {};
+  for (const tx of items) {
+    const ds = new Date(tx.createdAt).toDateString();
+    const label =
+      ds === todayStr ? 'Today'
+        : ds === yestStr ? 'Yesterday'
+          : formatTxDate(tx.createdAt);
+    if (!groups[label]) groups[label] = [];
+    groups[label].push(tx);
+  }
+  const ORDER = ['Today', 'Yesterday'];
+  const sorted = [
+    ...ORDER.filter((l) => groups[l]),
+    ...Object.keys(groups).filter((l) => !ORDER.includes(l)),
+  ];
+  return sorted.map((label) => ({ label, items: groups[label] }));
+}
+
+// ─── Skeleton components ──────────────────────────────────────────────────────
+
+function StatTileSkeleton() {
+  return (
+    <div className="h-20 bg-surface-container border-2 border-inverse-surface animate-pulse shrink-0 min-w-[130px]" />
+  );
+}
+
+function ReceiptSkeleton() {
+  return (
+    <div className="bg-white border-2 border-inverse-surface p-4 flex items-center justify-between gap-4 animate-pulse">
+      <div className="flex items-center gap-3">
+        <div className="w-11 h-11 bg-surface-container border-2 border-inverse-surface" />
+        <div className="space-y-2">
+          <div className="h-4 w-28 bg-surface-container" />
+          <div className="h-3 w-20 bg-surface-container" />
+        </div>
+      </div>
+      <div className="h-5 w-16 bg-surface-container" />
+    </div>
+  );
+}
+
+// ─── DashPage ─────────────────────────────────────────────────────────────────
+
 export default function DashPage() {
   const currency = useAppStore((s) => s.currency);
   const navigate = useAppStore((s) => s.navigate);
@@ -60,88 +134,74 @@ export default function DashPage() {
   const clearPendingFabAction = useAppStore((s) => s.clearPendingFabAction);
 
   const { data: stats, isLoading: statsLoading } = useStats();
-  const { data: txData } = useTransactions({ limit: '3' });
-  const { data: buckets } = useBuckets();
+  const { data: txData } = useTransactions({ limit: '5' });
+  const { data: buckets = [] } = useBuckets();
   const { data: budgets = [] } = useBudgets();
 
-  // Build a map from category → budget for quick lookup in Heat Map cards
-  const budgetByCategory: Record<string, EnrichedBudget> = {};
-  budgets.forEach((b) => {
-    if (b.scope === 'CATEGORY' && b.category) {
-      budgetByCategory[b.category] = b;
-    }
-  });
   const createTx = useCreateTransaction();
   const boostBucket = useBoostBucket();
 
   const [modal, setModal] = useState<ModalConfig | null>(null);
+  const [selectedTx, setSelectedTx] = useState<DrawerTransaction | null>(null);
 
+  // Budget lookup map for Heat Map
+  const budgetByCategory = useMemo(() => {
+    const map: Record<string, EnrichedBudget> = {};
+    budgets.forEach((b) => {
+      if (b.scope === 'CATEGORY' && b.category) map[b.category] = b;
+    });
+    return map;
+  }, [budgets]);
+
+  // ── Derived stats ──────────────────────────────────────────────────────
   const liquidity = stats?.liquidity ?? 0;
-  const healthScore = stats?.healthScore ?? 0;
-  const grade = healthScore >= 85 ? 'A+' : healthScore >= 70 ? 'A' : healthScore >= 55 ? 'B+' : healthScore >= 40 ? 'B' : 'C';
-  const gradeMsg = healthScore >= 70 ? "You're killing it, chief." : healthScore >= 40 ? 'Steady progress. Keep stashing.' : 'Time to lock in, chief.';
+  const monthlySpend = stats?.monthlySpend ?? 0;
+  const monthlyIncome = stats?.monthlyIncome ?? 0;
+  const dailyBurn = stats?.dailyBurn ?? 0;
+  const runway = stats?.runway ?? 0;
+  const netWorth = stats?.netWorth ?? 0;
+  const categoryBreakdown = stats?.categoryBreakdown ?? {};
+
+  const savingsRate = monthlyIncome > 0
+    ? Math.max(0, Math.min(100, Math.round(((monthlyIncome - monthlySpend) / monthlyIncome) * 100)))
+    : 0;
+
+  const topCategories = Object.entries(categoryBreakdown)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 4);
 
   const recentTx = txData?.items ?? [];
+  const txGroups = useMemo(() => groupByDate(recentTx), [recentTx]);
+  const bucketList = buckets.slice(0, 4);
 
-  // ── FAB action listener ──────────────────────────────────────────────────
+  // ── FAB action listener ────────────────────────────────────────────────
   useEffect(() => {
     if (!pendingFabAction) return;
-    if (pendingFabAction === 'quick_spend') {
-      openQuickSpend();
-      clearPendingFabAction();
-    } else if (pendingFabAction === 'load_up') {
-      openLoadUp();
-      clearPendingFabAction();
-    } else if (pendingFabAction === 'boost') {
-      openBoost();
-      clearPendingFabAction();
-    }
+    if (pendingFabAction === 'quick_spend') { openQuickSpend(); clearPendingFabAction(); }
+    else if (pendingFabAction === 'load_up') { openLoadUp(); clearPendingFabAction(); }
+    else if (pendingFabAction === 'boost') { openBoost(); clearPendingFabAction(); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingFabAction]);
 
-  // ── Modals ───────────────────────────────────────────────────────────────
+  // ── Modals ─────────────────────────────────────────────────────────────
 
   function openQuickSpend() {
     setModal({
-      title: 'Quick Spend',
-      subtitle: 'Log a fast transaction.',
-      submitLabel: 'Log It',
+      title: 'Quick Spend', subtitle: 'Log a fast transaction.', submitLabel: 'Log It',
       fields: [
         { name: 'merchant', label: 'Merchant', type: 'text', placeholder: 'TACO HEAVEN', required: true },
+        { name: 'amount', label: `Amount (${currency})`, type: 'number', step: '0.01', min: '0.01', placeholder: '0.00', required: true, inputmode: 'decimal' },
         {
-          name: 'amount',
-          label: `Amount (${currency})`,
-          type: 'number',
-          step: '0.01',
-          min: '0.01',
-          placeholder: '0.00',
-          required: true,
-          inputmode: 'decimal',
-        },
-        {
-          name: 'category',
-          label: 'Category',
-          type: 'select',
-          options: Object.entries(CATEGORY_META)
-            .filter(([k]) => k !== 'INCOME')
-            .map(([k, v]) => ({ value: k, label: `${v.emoji} ${v.label}` })),
+          name: 'category', label: 'Category', type: 'select',
+          options: Object.entries(CATEGORY_META).filter(([k]) => k !== 'INCOME').map(([k, v]) => ({ value: k, label: `${v.emoji} ${v.label}` }))
         },
       ],
       onSubmit: (values) => {
-        const displayAmount = Number(values.amount);
-        if (!Number.isFinite(displayAmount) || displayAmount <= 0) {
-          showToast('Enter a valid amount.', 'error');
-          return false;
-        }
-        const amount = displayToUsd(displayAmount, currency);
+        const d = Number(values.amount);
+        if (!Number.isFinite(d) || d <= 0) { showToast('Enter a valid amount.', 'error'); return false; }
+        const amount = displayToUsd(d, currency);
         createTx.mutate(
-          {
-            merchant: values.merchant.trim().toUpperCase(),
-            amount,
-            type: 'EXPENSE',
-            category: (values.category ?? 'OTHER') as never,
-            tags: [],
-          },
+          { merchant: values.merchant.trim().toUpperCase(), amount, type: 'EXPENSE', category: (values.category ?? 'OTHER') as never, tags: [] },
           { onSuccess: () => showToast(`Logged ${formatMoney(amount, currency)} ✓`, 'success') },
         );
         return true;
@@ -151,38 +211,17 @@ export default function DashPage() {
 
   function openLoadUp() {
     setModal({
-      title: 'Load Up',
-      subtitle: 'Add funds to your stash.',
-      submitLabel: 'Load Up',
+      title: 'Load Up', subtitle: 'Add funds to your stash.', submitLabel: 'Load Up',
       fields: [
         { name: 'merchant', label: 'Source', type: 'text', placeholder: 'PAYCHECK', required: true },
-        {
-          name: 'amount',
-          label: `Amount (${currency})`,
-          type: 'number',
-          step: '0.01',
-          min: '0.01',
-          value: '250.00',
-          placeholder: '0.00',
-          required: true,
-          inputmode: 'decimal',
-        },
+        { name: 'amount', label: `Amount (${currency})`, type: 'number', step: '0.01', min: '0.01', value: '250.00', placeholder: '0.00', required: true, inputmode: 'decimal' },
       ],
       onSubmit: (values) => {
-        const displayAmount = Number(values.amount);
-        if (!Number.isFinite(displayAmount) || displayAmount <= 0) {
-          showToast('Enter a valid amount.', 'error');
-          return false;
-        }
-        const amount = displayToUsd(displayAmount, currency);
+        const d = Number(values.amount);
+        if (!Number.isFinite(d) || d <= 0) { showToast('Enter a valid amount.', 'error'); return false; }
+        const amount = displayToUsd(d, currency);
         createTx.mutate(
-          {
-            merchant: values.merchant.trim().toUpperCase() || 'MANUAL DEPOSIT',
-            amount,
-            type: 'INCOME',
-            category: 'INCOME',
-            tags: [],
-          },
+          { merchant: values.merchant.trim().toUpperCase() || 'MANUAL DEPOSIT', amount, type: 'INCOME', category: 'INCOME', tags: [] },
           { onSuccess: () => showToast(`Loaded ${formatMoney(amount, currency)} ✓`, 'success') },
         );
         return true;
@@ -191,51 +230,22 @@ export default function DashPage() {
   }
 
   function openBoost() {
-    const lowestBucket = [...(buckets ?? [])]
-      .sort((a, b) => (a.savedUsd / a.targetUsd) - (b.savedUsd / b.targetUsd))[0];
-    if (!lowestBucket) {
-      showToast('Create a bucket first.', 'info');
-      navigate('buckets');
-      return;
-    }
+    const lowest = [...buckets].sort((a, b) => (a.savedUsd / a.targetUsd) - (b.savedUsd / b.targetUsd))[0];
+    if (!lowest) { showToast('Create a bucket first.', 'info'); navigate('buckets'); return; }
     setModal({
-      title: 'Quick Boost',
-      subtitle: `Auto-targeting "${lowestBucket.name}" (your lowest bucket).`,
-      submitLabel: 'Boost',
-      fields: [
-        {
-          name: 'amountUsd',
-          label: `Amount (${currency})`,
-          type: 'number',
-          step: '0.01',
-          min: '0.01',
-          value: '25',
-          required: true,
-        },
-      ],
+      title: 'Quick Boost', subtitle: `Auto-targeting "${lowest.name}".`, submitLabel: 'Boost',
+      fields: [{ name: 'amountUsd', label: `Amount (${currency})`, type: 'number', step: '0.01', min: '0.01', value: '25', required: true }],
       onSubmit: (v) => {
-        const displayAmt = Number(v.amountUsd);
-        if (!Number.isFinite(displayAmt) || displayAmt <= 0) {
-          showToast('Enter a valid amount.', 'error');
-          return false;
-        }
-        const amt = displayToUsd(displayAmt, currency);
-        boostBucket.mutate(
-          { id: lowestBucket.id, amountUsd: amt },
-          { onSuccess: () => showToast(`Boosted ${lowestBucket.name}! ⚡`, 'success') },
-        );
+        const d = Number(v.amountUsd);
+        if (!Number.isFinite(d) || d <= 0) { showToast('Enter a valid amount.', 'error'); return false; }
+        const amt = displayToUsd(d, currency);
+        boostBucket.mutate({ id: lowest.id, amountUsd: amt }, { onSuccess: () => showToast(`Boosted ${lowest.name}! ⚡`, 'success') });
         return true;
       },
     });
   }
 
-  // ── Category breakdown ───────────────────────────────────────────────────
-  const categoryBreakdown = stats?.categoryBreakdown ?? {};
-  const topCategories = Object.entries(categoryBreakdown)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 4);
-
-  const bucketList = (buckets ?? []).slice(0, 3);
+  // ── Render ─────────────────────────────────────────────────────────────
 
   return (
     <>
@@ -243,338 +253,334 @@ export default function DashPage() {
         variants={containerVariants}
         initial="hidden"
         animate="show"
-        className="p-6 space-y-8 max-w-5xl mx-auto"
+        className="max-w-4xl mx-auto pb-8"
       >
-        {/* ── Hero ─────────────────────────────────────────────────────────── */}
-        <motion.section variants={itemVariants} className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="md:col-span-2 bg-primary-container p-8 border-4 border-inverse-surface hard-shadow-lg flex flex-col justify-between min-h-[280px]">
-            <div>
-              <h2 className="font-headline text-5xl font-black tracking-tighter leading-none mb-1">DASH</h2>
-              <p className="font-headline font-bold text-base uppercase opacity-70 tracking-widest">
-                Stashing hard or hardly stashing?
+
+        {/* ── 1. HERO ─────────────────────────────────────────────────── */}
+        <motion.section
+          variants={itemVariants}
+          className="bg-inverse-surface text-white px-6 pt-7 pb-0 relative overflow-hidden"
+        >
+          {/* Eyebrow */}
+          <div className="flex justify-between items-center mb-3">
+            <p className="font-headline font-black text-[10px] uppercase tracking-[0.3em] opacity-40">
+              This Month
+            </p>
+            <p className="font-headline font-bold text-[10px] uppercase tracking-wider opacity-40">
+              {getMonthYear()}
+            </p>
+          </div>
+
+          {/* THE NUMBER */}
+          <div className="mb-2">
+            {statsLoading
+              ? <div className="h-16 w-56 bg-white/10 animate-pulse" />
+              : (
+                <motion.p
+                  className="font-headline font-black text-6xl sm:text-7xl leading-none tracking-tighter"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                >
+                  {formatMoney(liquidity, currency)}
+                </motion.p>
+              )}
+            <p className="font-bold text-xs opacity-40 uppercase tracking-widest mt-1.5">
+              Total liquidity
+            </p>
+          </div>
+
+          {/* THE SIGNATURE: savings rate battery bar */}
+          <div className="mt-5">
+            <div className="flex justify-between items-center mb-2">
+              <p className="font-headline font-black text-[10px] uppercase tracking-widest opacity-60">
+                Monthly savings rate
+              </p>
+              <p className="font-headline font-black text-sm">
+                {statsLoading ? '—' : `${savingsRate}%`}
               </p>
             </div>
-            <div className="flex items-end justify-between mt-8 flex-wrap gap-4">
-              <div className="flex flex-col">
-                <span className="text-xs font-bold uppercase tracking-widest opacity-60 mb-1">Total Liquidity</span>
-                <span
-                  id="total-liquidity-value"
-                  className="text-6xl font-headline font-black leading-none"
-                >
-                  {statsLoading ? (
-                    <span className="inline-block w-48 h-14 bg-black/10 animate-pulse" />
-                  ) : (
-                    formatMoney(liquidity, currency)
-                  )}
-                </span>
-              </div>
-              <div className="bg-secondary p-3 border-4 border-inverse-surface rotate-2 hard-shadow">
-                <span className="text-white font-headline text-3xl font-black">STABLE</span>
-              </div>
+            {/* Full-bleed bar */}
+            <div className="h-3 bg-white/10 -mx-6 relative overflow-hidden">
+              {!statsLoading && (
+                <motion.div
+                  className={`h-full ${savingsBarColor(savingsRate)}`}
+                  initial={{ width: 0 }}
+                  animate={{ width: `${savingsRate}%` }}
+                  transition={{ duration: 1.1, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
+                />
+              )}
+            </div>
+            <p className="font-bold text-[10px] opacity-40 mt-2 mb-5">
+              {statsLoading
+                ? '…'
+                : runway > 365
+                  ? 'Runway: 1 year+ at this pace'
+                  : `Runway: ${runway} days at current burn`}
+            </p>
+          </div>
+
+          {/* Spend vs income strip */}
+          <div className="flex gap-0 -mx-6 border-t border-white/10">
+            <div className="flex-1 px-6 py-4 border-r border-white/10">
+              <p className="font-headline font-black text-[9px] uppercase tracking-widest opacity-50 mb-1">↓ Spent</p>
+              {statsLoading
+                ? <div className="h-5 w-20 bg-white/10 animate-pulse" />
+                : <p className="font-headline font-black text-lg leading-none text-error">
+                  {formatCompactMoney(monthlySpend, currency)}
+                </p>}
+            </div>
+            <div className="flex-1 px-6 py-4">
+              <p className="font-headline font-black text-[9px] uppercase tracking-widest opacity-50 mb-1">↑ Earned</p>
+              {statsLoading
+                ? <div className="h-5 w-20 bg-white/10 animate-pulse" />
+                : <p className="font-headline font-black text-lg leading-none text-[#cafd00]">
+                  {formatCompactMoney(monthlyIncome, currency)}
+                </p>}
             </div>
           </div>
 
-          {/* Grade card */}
-          <div className="bg-tertiary-container p-6 border-4 border-inverse-surface hard-shadow-lg flex flex-col items-center justify-center text-center relative overflow-hidden">
-            <span className="absolute top-3 left-4 font-headline font-bold text-[10px] uppercase tracking-[0.2em] opacity-60">
-              Current Vibes
-            </span>
-            <div className="text-[110px] font-headline font-black leading-none text-tertiary drop-shadow-[4px_4px_0px_#0c0f0f] select-none">
-              {grade}
-            </div>
-            <p className="font-bold text-sm uppercase mt-3 opacity-80">{gradeMsg}</p>
-            <div className="w-full h-3 border-2 border-inverse-surface mt-5 bg-white overflow-hidden">
-              <motion.div
-                className="bg-primary h-full border-r-2 border-inverse-surface"
-                initial={{ width: 0 }}
-                animate={{ width: `${healthScore}%` }}
-                transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1], delay: 0.3 }}
-              />
-            </div>
+          {/* Decorative bg */}
+          <div className="absolute right-[-24px] top-[-16px] opacity-[0.03] pointer-events-none rotate-12 select-none">
+            <span className="font-headline font-black text-[180px] leading-none">$</span>
           </div>
         </motion.section>
 
-        {/* ── Quick Actions ─────────────────────────────────────────────────── */}
-        <motion.section variants={itemVariants} className="flex flex-wrap gap-3">
+        {/* ── 2. QUICK STAT TILES ─────────────────────────────────────── */}
+        <motion.section variants={itemVariants} className="px-6 pt-5">
+          <div className="flex gap-3 overflow-x-auto pb-1 snap-x snap-mandatory">
+            {statsLoading
+              ? [0, 1, 2].map((i) => <StatTileSkeleton key={i} />)
+              : [
+                { label: 'Daily Burn', value: formatCompactMoney(dailyBurn, currency), sub: 'avg per day', bg: 'bg-white' },
+                { label: 'Runway', value: runway > 365 ? '1yr+' : `${runway}d`, sub: 'at current pace', bg: runway < 30 ? 'bg-error-container' : runway < 90 ? 'bg-[#fff3cd]' : 'bg-primary-container' },
+                { label: 'Net Worth', value: formatCompactMoney(netWorth, currency), sub: 'liquidity + savings', bg: 'bg-tertiary-container' },
+              ].map(({ label, value, sub, bg }) => (
+                <div key={label} className={`${bg} border-4 border-inverse-surface hard-shadow p-4 shrink-0 min-w-[130px] snap-start`}>
+                  <p className="font-headline font-black text-[9px] uppercase tracking-widest opacity-60 mb-1">{label}</p>
+                  <p className="font-headline font-black text-2xl leading-none">{value}</p>
+                  <p className="font-bold text-[10px] text-on-surface-variant opacity-70 mt-1">{sub}</p>
+                </div>
+              ))}
+          </div>
+        </motion.section>
+
+        {/* ── 3. QUICK ACTIONS ────────────────────────────────────────── */}
+        <motion.section variants={itemVariants} className="px-6 pt-5 flex gap-3">
           <button
             onClick={openQuickSpend}
-            className="interactive-lift bg-secondary-container font-headline font-black text-lg px-8 py-5 border-4 border-inverse-surface hard-shadow flex items-center gap-3 cursor-pointer"
+            className="flex-1 interactive-lift bg-secondary-container border-4 border-inverse-surface py-4 hard-shadow flex items-center justify-center gap-2.5 cursor-pointer"
           >
-            <span
-              className="material-symbols-outlined text-3xl"
-              style={{ fontVariationSettings: "'FILL' 1" }}
-            >
-              bolt
-            </span>
-            QUICK SPEND
+            <span className="material-symbols-outlined text-2xl leading-none" style={{ fontVariationSettings: "'FILL' 1" }}>bolt</span>
+            <span className="font-headline font-black text-sm uppercase">Quick Spend</span>
           </button>
           <button
             onClick={openLoadUp}
-            className="interactive-lift bg-white font-headline font-black text-lg px-8 py-5 border-4 border-inverse-surface hard-shadow flex items-center gap-3 cursor-pointer"
+            className="flex-1 interactive-lift bg-white border-4 border-inverse-surface py-4 hard-shadow flex items-center justify-center gap-2.5 cursor-pointer"
           >
-            <span
-              className="material-symbols-outlined text-3xl"
-              style={{ fontVariationSettings: "'FILL' 1" }}
-            >
-              add_card
-            </span>
-            LOAD UP
+            <span className="material-symbols-outlined text-2xl leading-none" style={{ fontVariationSettings: "'FILL' 1" }}>add_card</span>
+            <span className="font-headline font-black text-sm uppercase">Load Up</span>
           </button>
         </motion.section>
 
-        {/* ── Bento Grid ───────────────────────────────────────────────────── */}
-        <motion.section variants={itemVariants} className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          {/* Heat Map */}
-          <div className="md:col-span-3 bg-white border-4 border-inverse-surface hard-shadow-lg p-6">
-            <div className="flex justify-between items-center mb-5 flex-wrap gap-2">
-              <h3 className="font-headline text-2xl font-black uppercase italic underline decoration-secondary decoration-4">
-                Heat Map
-              </h3>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-black px-3 py-1 bg-inverse-surface text-white uppercase tracking-widest">
-                  Last 30 Days
-                </span>
-                <button
-                  onClick={() => navigate('budgets')}
-                  className="text-[10px] font-black uppercase tracking-wider text-on-surface-variant hover:text-primary transition-colors cursor-pointer underline"
-                >
-                  Manage Budgets
-                </button>
-              </div>
+        {/* ── 4. HEAT MAP ─────────────────────────────────────────────── */}
+        <motion.section variants={itemVariants} className="px-6 pt-8">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="font-headline font-black text-xs uppercase tracking-[0.22em] text-on-surface-variant">
+              Spending Heat Map
+            </h2>
+            <div className="flex items-center gap-3">
+              <span className="font-bold text-[10px] uppercase tracking-wider text-on-surface-variant opacity-60">Last 30 days</span>
+              <button onClick={() => navigate('budgets')} className="font-headline font-black text-[10px] uppercase tracking-wider text-on-surface-variant hover:text-primary transition-colors cursor-pointer underline">
+                Budgets
+              </button>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {topCategories.length > 0
-                ? topCategories.map(([cat, amt]) => {
+          </div>
+
+          {topCategories.length === 0 && !statsLoading ? (
+            <div className="border-4 border-dashed border-inverse-surface p-8 text-center">
+              <p className="font-bold text-on-surface-variant text-sm">Log some transactions to see your spending breakdown.</p>
+            </div>
+          ) : (
+            <div className="flex gap-3 overflow-x-auto pb-1 snap-x snap-mandatory sm:grid sm:grid-cols-4 sm:overflow-visible">
+              {statsLoading
+                ? [0, 1, 2, 3].map((i) => (
+                  <div key={i} className="h-28 min-w-[120px] bg-surface-container border-2 border-inverse-surface animate-pulse shrink-0 snap-start" />
+                ))
+                : topCategories.map(([cat, amt]) => {
                   const meta = CATEGORY_META[cat] ?? CATEGORY_META.OTHER;
                   const budget = budgetByCategory[cat];
-                  const budgetPct = budget
-                    ? Math.min(Math.round((amt / budget.amount) * 100), 100)
-                    : null;
+                  const budgetPct = budget ? Math.min(Math.round((amt / budget.amount) * 100), 100) : null;
                   const isOver = budget ? amt > budget.amount : false;
                   const isWarn = budget ? (budgetPct ?? 0) >= budget.alertThresholdPct && !isOver : false;
                   const barColor = isOver ? 'bg-error' : isWarn ? 'bg-[#ff8800]' : 'bg-primary';
-
                   return (
                     <button
                       key={cat}
                       onClick={() => navigate('budgets')}
-                      className={`${CATEGORY_COLORS[cat] ?? 'bg-surface-container'} border-2 border-inverse-surface p-4 hard-shadow-sm interactive-soft cursor-pointer text-left w-full`}
+                      className={`${CATEGORY_COLORS[cat] ?? 'bg-surface-container'} border-2 border-inverse-surface p-4 interactive-soft cursor-pointer text-left shrink-0 min-w-[120px] snap-start sm:min-w-0 w-full`}
                     >
-                      <div className="flex justify-between items-start mb-1.5">
-                        <div className="text-2xl">{meta.emoji}</div>
-                        {isOver && (
-                          <span className="text-[8px] font-black uppercase tracking-wider text-error bg-white px-1 py-0.5 border border-error leading-none">
-                            Over
-                          </span>
-                        )}
-                        {isWarn && !isOver && (
-                          <span className="text-[8px] font-black uppercase tracking-wider text-[#7d4e00] bg-white px-1 py-0.5 border border-[#ff8800] leading-none">
-                            Warn
-                          </span>
-                        )}
+                      <div className="flex justify-between items-start mb-2">
+                        <span className="text-2xl">{meta.emoji}</span>
+                        {isOver && <span className="text-[8px] font-black uppercase text-error bg-white px-1 py-0.5 border border-error leading-none">Over</span>}
+                        {isWarn && !isOver && <span className="text-[8px] font-black uppercase text-[#7d4e00] bg-white px-1 py-0.5 border border-[#ff8800] leading-none">Warn</span>}
                       </div>
-                      <div className="font-headline font-black text-sm uppercase truncate leading-tight" title={meta.label}>
-                        {meta.label}
-                      </div>
-                      <div className="text-xs font-bold opacity-70 mt-0.5">
+                      <p className="font-headline font-black text-xs uppercase truncate">{meta.label}</p>
+                      <p className="text-xs font-bold opacity-70 mt-0.5">
                         {formatCompactMoney(amt, currency)}
-                        {budget && (
-                          <span className="opacity-60"> / {formatCompactMoney(budget.amount, currency)}</span>
-                        )}
-                      </div>
-                      {/* Mini budget progress bar — only shown if budget exists */}
+                        {budget && <span className="opacity-50"> / {formatCompactMoney(budget.amount, currency)}</span>}
+                      </p>
                       {budgetPct !== null && (
-                        <div className="w-full h-1.5 bg-black/10 mt-2 overflow-hidden">
-                          <motion.div
-                            className={`h-full ${barColor}`}
-                            initial={{ width: 0 }}
-                            animate={{ width: `${budgetPct}%` }}
-                            transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1], delay: 0.3 }}
-                          />
+                        <div className="w-full h-1 bg-black/10 mt-2 overflow-hidden">
+                          <motion.div className={`h-full ${barColor}`} initial={{ width: 0 }} animate={{ width: `${budgetPct}%` }} transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1], delay: 0.3 }} />
                         </div>
                       )}
                     </button>
                   );
-                })
-                : [0, 1, 2, 3].map((i) => (
-                  <div
-                    key={i}
-                    className="bg-surface-container border-2 border-inverse-surface p-4 h-28 animate-pulse"
-                  />
-                ))}
+                })}
             </div>
-          </div>
-
-          {/* Savings Clout */}
-          <div className="md:col-span-1 bg-inverse-surface text-white p-6 border-4 border-inverse-surface hard-shadow-lg flex flex-col justify-between">
-            <div>
-              <h3 className="font-headline font-black text-lg mb-4 uppercase">Savings Clout</h3>
-              <div className="space-y-4">
-                {bucketList.length === 0
-                  ? [0, 1, 2].map((i) => (
-                    <div key={i} className="space-y-1">
-                      <div className="h-3 bg-white/10 animate-pulse w-3/4" />
-                      <div className="w-full h-2 bg-white/10">
-                        <div className="h-full bg-white/20 w-1/3 animate-pulse" />
-                      </div>
-                    </div>
-                  ))
-                  : bucketList.map((b, i) => {
-                    const pct = Math.round((b.savedUsd / b.targetUsd) * 100);
-                    return (
-                      <div key={b.id}>
-                        <div className="flex justify-between text-xs font-bold uppercase mb-1">
-                          <span className="truncate max-w-[80%]">{b.name}</span>
-                          <span>{pct}%</span>
-                        </div>
-                        <div className="w-full h-2 bg-white/20">
-                          <motion.div
-                            className={`${['bg-[#cafd00]', 'bg-[#ffbdf3]', 'bg-[#bba2ff]'][i % 3]} h-full`}
-                            initial={{ width: 0 }}
-                            animate={{ width: `${pct}%` }}
-                            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: 0.2 + i * 0.1 }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-              </div>
-            </div>
-            <button
-              onClick={() => navigate('buckets')}
-              className="mt-6 w-full border-2 border-white/60 py-2.5 font-headline font-black text-xs uppercase hover:bg-white hover:text-inverse-surface transition-colors active-press cursor-pointer"
-            >
-              View All Buckets
-            </button>
-          </div>
+          )}
         </motion.section>
 
-        {/* ── Recent Receipts ───────────────────────────────────────────────── */}
-        <motion.section variants={itemVariants} className="space-y-4">
-          <h3 className="font-headline text-3xl font-black uppercase underline decoration-primary decoration-8">
-            Receipts
-          </h3>
-
-          <div className="space-y-2.5">
-            {statsLoading && recentTx.length === 0 ? (
-              // Skeleton loaders that match the actual receipt card
-              [0, 1, 2].map((i) => (
-                <div
-                  key={i}
-                  className="bg-white border-2 border-inverse-surface p-4 flex items-center justify-between gap-4"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-surface-container animate-pulse border-2 border-inverse-surface" />
-                    <div className="space-y-2">
-                      <div className="h-4 w-32 bg-surface-container animate-pulse" />
-                      <div className="h-3 w-20 bg-surface-container animate-pulse" />
-                    </div>
-                  </div>
-                  <div className="h-6 w-20 bg-surface-container animate-pulse" />
-                </div>
-              ))
-            ) : recentTx.length === 0 ? (
-              <div className="bg-white border-2 border-inverse-surface p-8 text-center">
-                <p className="font-headline font-black text-xl uppercase mb-1">No transactions yet</p>
-                <p className="font-bold text-on-surface-variant text-sm">
-                  Hit Quick Spend to log your first one.
-                </p>
-              </div>
-            ) : (
-              recentTx.map((tx) => {
-                const meta = CATEGORY_META[tx.category] ?? CATEGORY_META.OTHER;
-                const isIncome = tx.type === 'INCOME';
-                const iconTheme = RECEIPT_ICON_COLORS[tx.category] ?? RECEIPT_ICON_COLORS.OTHER;
-                const isOpt = (tx as any).isOptimistic;
-
+        {/* ── 5. SAVINGS PREVIEW ──────────────────────────────────────── */}
+        {bucketList.length > 0 && (
+          <motion.section variants={itemVariants} className="px-6 pt-8">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="font-headline font-black text-xs uppercase tracking-[0.22em] text-on-surface-variant">Savings Buckets</h2>
+              <button onClick={() => navigate('buckets')} className="font-headline font-black text-[10px] uppercase tracking-wider text-on-surface-variant hover:text-primary transition-colors cursor-pointer underline">
+                All buckets
+              </button>
+            </div>
+            <div className="flex gap-3 overflow-x-auto pb-1 snap-x snap-mandatory">
+              {bucketList.map((b, i) => {
+                const pct = Math.round((b.savedUsd / b.targetUsd) * 100);
+                const FILLS = ['bg-[#cafd00]', 'bg-[#ffbdf3]', 'bg-[#bba2ff]', 'bg-white/60'];
                 return (
-                  <motion.div
-                    key={tx.id}
-                    layout
-                    className={[
-                      'bg-white border-2 border-inverse-surface hard-shadow p-4',
-                      'flex items-center justify-between gap-3',
-                      'hover:translate-x-0.5 transition-transform cursor-pointer',
-                      isOpt ? 'pulse-sync opacity-60 border-dashed bg-surface-container' : '',
-                    ].join(' ')}
+                  <button key={b.id} onClick={() => navigate('buckets')}
+                    className={`bg-inverse-surface text-white border-4 border-inverse-surface hard-shadow p-4 shrink-0 snap-start cursor-pointer text-left interactive-lift ${b.isFeatured ? 'min-w-[200px]' : 'min-w-[160px]'}`}
                   >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div
-                        className={`w-11 h-11 shrink-0 ${iconTheme} border-2 border-inverse-surface flex items-center justify-center`}
-                      >
-                        <span className="material-symbols-outlined text-base">{meta.icon}</span>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-headline font-black text-base leading-tight truncate flex items-center gap-2">
-                          {tx.merchant}
-                          {isOpt && (
-                            <span className="text-[8px] font-black tracking-wider text-white bg-black px-1.5 py-0.5 uppercase pulse-sync shrink-0">
-                              Syncing
-                            </span>
-                          )}
-                        </p>
-                        <p className="text-[10px] font-bold opacity-50 uppercase tracking-wide">
-                          {new Date(tx.createdAt).toLocaleDateString()} · {meta.label}
-                        </p>
-                      </div>
+                    <div className="flex justify-between items-start mb-3">
+                      <span className="material-symbols-outlined text-2xl opacity-80" style={{ fontVariationSettings: "'FILL' 1" }}>{b.icon}</span>
+                      <span className="font-headline font-black text-lg">{pct}%</span>
                     </div>
-                    <div className="text-right shrink-0">
-                      <p
-                        className={`font-headline font-black text-lg leading-tight ${isIncome ? 'text-primary-dim' : 'text-error'
-                          }`}
-                      >
-                        {isIncome ? '+' : '−'}{formatMoney(tx.amount, currency)}
-                      </p>
-                      <p className="text-[9px] font-black bg-surface-container px-1.5 py-0.5 uppercase tracking-wide">
-                        {isIncome ? 'Secured' : 'Spent'}
-                      </p>
+                    <p className="font-headline font-black text-sm uppercase truncate mb-2">{b.name}</p>
+                    <div className="w-full h-2 bg-white/10 overflow-hidden">
+                      <motion.div className={`${FILLS[i % FILLS.length]} h-full`} initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: 0.1 + i * 0.05 }} />
                     </div>
-                  </motion.div>
+                    <p className="font-bold text-[10px] opacity-50 mt-1.5">
+                      {formatCompactMoney(b.savedUsd, currency)} of {formatCompactMoney(b.targetUsd, currency)}
+                    </p>
+                  </button>
                 );
-              })
-            )}
+              })}
+              <button onClick={() => navigate('buckets')}
+                className="bg-surface-container border-4 border-dashed border-inverse-surface p-4 shrink-0 min-w-[120px] snap-start cursor-pointer flex flex-col items-center justify-center gap-2 opacity-50 hover:opacity-100 transition-opacity"
+              >
+                <span className="material-symbols-outlined text-3xl">add_circle</span>
+                <span className="font-headline font-black text-xs uppercase">New</span>
+              </button>
+            </div>
+          </motion.section>
+        )}
+
+        {/* ── 6. RECENT RECEIPTS — date-grouped ───────────────────────── */}
+        <motion.section variants={itemVariants} className="px-6 pt-8">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="font-headline font-black text-xs uppercase tracking-[0.22em] text-on-surface-variant">Recent Receipts</h2>
+            <button onClick={() => navigate('feed')} className="font-headline font-black text-[10px] uppercase tracking-wider text-on-surface-variant hover:text-primary transition-colors cursor-pointer underline">
+              View all
+            </button>
           </div>
 
+          {statsLoading && recentTx.length === 0 ? (
+            <div className="space-y-2.5">{[0, 1, 2].map((i) => <ReceiptSkeleton key={i} />)}</div>
+          ) : recentTx.length === 0 ? (
+            <div className="bg-white border-2 border-inverse-surface p-8 text-center">
+              <p className="font-headline font-black text-base uppercase mb-1">No transactions yet</p>
+              <p className="font-bold text-on-surface-variant text-sm">Hit Quick Spend to log your first one.</p>
+            </div>
+          ) : (
+            <div className="space-y-5">
+              {txGroups.map(({ label, items }) => (
+                <div key={label}>
+                  <div className="flex items-center gap-3 mb-2">
+                    <p className="font-headline font-black text-[10px] uppercase tracking-widest text-on-surface-variant shrink-0">{label}</p>
+                    <div className="flex-1 h-px bg-inverse-surface opacity-10" />
+                  </div>
+                  <div className="space-y-2">
+                    {items.map((tx: any) => {
+                      const meta = CATEGORY_META[tx.category] ?? CATEGORY_META.OTHER;
+                      const isIncome = tx.type === 'INCOME';
+                      const iconTheme = RECEIPT_ICON_COLORS[tx.category] ?? RECEIPT_ICON_COLORS.OTHER;
+                      const isOpt = tx.isOptimistic;
+                      return (
+                        <motion.div
+                          key={tx.id}
+                          layout
+                          onClick={() => !isOpt && setSelectedTx({
+                            id: tx.id, merchant: tx.merchant, amount: tx.amount,
+                            type: tx.type, category: tx.category, note: tx.note,
+                            aiInsight: tx.aiInsight, tags: tx.tags ?? [],
+                            createdAt: tx.createdAt, occurredAt: tx.occurredAt,
+                            source: tx.source ?? 'MANUAL', status: tx.status ?? 'POSTED',
+                            accountId: tx.accountId, account: tx.account, isOptimistic: isOpt,
+                          })}
+                          className={[
+                            'bg-white border-2 border-inverse-surface hard-shadow p-4 flex items-center justify-between gap-3',
+                            isOpt
+                              ? 'pulse-sync opacity-60 border-dashed bg-surface-container cursor-not-allowed'
+                              : 'hover:-translate-y-0.5 transition-transform cursor-pointer',
+                          ].join(' ')}
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className={`w-11 h-11 shrink-0 ${iconTheme} border-2 border-inverse-surface flex items-center justify-center`}>
+                              <span className="material-symbols-outlined text-base">{meta.icon}</span>
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-headline font-black text-base leading-tight truncate">{tx.merchant}</p>
+                              <p className="text-[10px] font-bold opacity-50 uppercase tracking-wide">{meta.label}</p>
+                            </div>
+                          </div>
+                          <p className={`font-headline font-black text-lg leading-tight shrink-0 ${isIncome ? 'text-primary-dim' : 'text-error'}`}>
+                            {isIncome ? '+' : '−'}{formatMoney(tx.amount, currency)}
+                          </p>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </motion.section>
+
+        {/* ── 7. AI INTEL CTA — compact strip ─────────────────────────── */}
+        <motion.section variants={itemVariants} className="px-6 pt-8">
           <button
-            onClick={() => navigate('feed')}
-            className="w-full border-4 border-inverse-surface py-3 font-headline font-black uppercase text-sm hard-shadow hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all bg-white cursor-pointer"
+            onClick={() => navigate('intel')}
+            className="w-full bg-inverse-surface text-white border-4 border-inverse-surface p-5 hard-shadow flex items-center justify-between gap-4 hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all cursor-pointer group"
           >
-            View All Receipts →
+            <div className="flex items-center gap-4 min-w-0">
+              <div className="w-10 h-10 bg-[#cafd00] border-2 border-white/20 flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-inverse-surface text-xl leading-none" style={{ fontVariationSettings: "'FILL' 1" }}>psychology</span>
+              </div>
+              <div className="min-w-0">
+                <p className="font-headline font-black text-sm uppercase">
+                  {stats?.topCategory
+                    ? `Trim ${(CATEGORY_META[stats.topCategory] ?? CATEGORY_META.OTHER).label} 20% → save ${formatCompactMoney(stats.recoveryMove ?? 0, currency)}`
+                    : 'Open Intel for AI spending insights'}
+                </p>
+                <p className="font-bold text-xs opacity-50 mt-0.5">AI Finance Coach</p>
+              </div>
+            </div>
+            <span className="material-symbols-outlined text-white opacity-40 group-hover:opacity-80 transition-opacity shrink-0">arrow_forward</span>
           </button>
         </motion.section>
 
-        {/* ── AI Insight Banner (replaces referral promo) ───────────────────── */}
-        <motion.section variants={itemVariants}>
-          <div className="bg-inverse-surface border-4 border-inverse-surface p-7 relative overflow-hidden">
-            <div className="relative z-10">
-              <span className="bg-[#cafd00] text-inverse-surface font-headline font-black text-[10px] uppercase tracking-[0.2em] px-3 py-1 inline-block mb-4">
-                💡 Today's Intel
-              </span>
-              <p className="font-headline font-black text-2xl text-white leading-snug mb-4 max-w-lg">
-                {stats?.topCategory
-                  ? `Your top spend this month is ${(CATEGORY_META[stats.topCategory] ?? CATEGORY_META.OTHER).label}. Trim it by 20% to recover ${formatMoney(stats.recoveryMove ?? 0, currency)}.`
-                  : 'Log your first transactions to unlock AI-powered spending insights.'}
-              </p>
-              <button
-                onClick={() => navigate('intel')}
-                className="bg-[#cafd00] text-inverse-surface font-headline font-black text-sm uppercase px-5 py-3 border-2 border-white/30 hard-shadow-sm hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all cursor-pointer active-press"
-              >
-                Open Intel →
-              </button>
-            </div>
-            <div className="absolute right-[-16px] bottom-[-16px] rotate-[-12deg] opacity-10 pointer-events-none">
-              <span
-                className="material-symbols-outlined text-white"
-                style={{ fontSize: '180px', fontVariationSettings: "'FILL' 1" }}
-              >
-                psychology
-              </span>
-            </div>
-          </div>
-        </motion.section>
       </motion.main>
 
       <ActionModal config={modal} onClose={() => setModal(null)} />
+      <TransactionDetailDrawer transaction={selectedTx} onClose={() => setSelectedTx(null)} />
     </>
   );
 }
