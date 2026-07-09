@@ -328,7 +328,7 @@ export default function BucketsPage() {
                     className={[
                       b.isFeatured ? 'md:col-span-2' : '',
                       theme.card,
-                      'border-4 border-inverse-surface p-6 hard-shadow interactive-lift flex flex-col cursor-pointer group',
+                      'border-4 border-inverse-surface p-6 hard-shadow interactive-lift interactive-card flex flex-col cursor-pointer group',
                     ].join(' ')}
                   >
                     {/* Top row */}

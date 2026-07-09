@@ -3,9 +3,10 @@
 import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAppStore } from '@/store/app';
-import { formatMoney, displayToUsd } from '@/lib/currencies';
+import { formatMoney } from '@/lib/currencies';
 import ActionModal from '@/components/ui/ActionModal';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useCountUp } from '@/hooks/useCountUp';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -123,7 +124,7 @@ function AccountCard({
             whileHover={{ rotate: 1, y: -4 }}
             whileTap={{ scale: 0.97, rotate: 0 }}
             transition={{ type: 'spring', stiffness: 400, damping: 28 }}
-            className="relative h-40 w-full border-4 border-inverse-surface hard-shadow cursor-pointer text-left overflow-hidden shrink-0 focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-secondary"
+            className="relative h-40 w-full border-4 border-inverse-surface hard-shadow interactive-card cursor-pointer text-left overflow-hidden shrink-0 focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-secondary"
             style={{ backgroundColor: bg }}
             aria-label={`${account.name}: ${formatMoney(account.currentBalance, currency as any)}`}
         >
@@ -704,7 +705,6 @@ export default function VaultPage() {
 
     const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
     const [showTransfer, setShowTransfer] = useState(false);
-    const [selectedColor, setSelectedColor] = useState(PRESET_COLORS[0].hex);
     const [modal, setModal] = useState<ModalConfig | null>(null);
 
     const { data, isLoading } = useQuery<{ accounts: Account[] }>({
@@ -715,6 +715,15 @@ export default function VaultPage() {
     const accounts = data?.accounts ?? [];
 
     const totalBalance = accounts.reduce((s, a) => s + a.currentBalance, 0);
+
+    // Count-up animation for total balance
+    const totalBalanceDisplay = useCountUp({
+        to: totalBalance,
+        duration: 900,
+        delay: 100,
+        enabled: !isLoading && accounts.length > 0,
+        format: (n) => formatMoney(n, currency),
+    });
 
     // ── Mutations ──────────────────────────────────────────────────────────
 
@@ -749,7 +758,6 @@ export default function VaultPage() {
     // ── Modal openers ──────────────────────────────────────────────────────
 
     const openCreateAccount = useCallback(() => {
-        setSelectedColor(PRESET_COLORS[0].hex);
         setModal({
             title: 'New Account',
             subtitle: 'Add a wallet, stash, or cash pool.',
@@ -828,10 +836,10 @@ export default function VaultPage() {
                     <p className="font-headline font-bold text-[10px] uppercase tracking-[0.3em] opacity-50 mb-2">
                         Total Net Balance
                     </p>
-                    <p className="font-headline font-black text-6xl sm:text-7xl leading-none tracking-tighter">
+                    <p className="font-headline font-black text-6xl sm:text-7xl leading-none tracking-tighter tabular-nums">
                         {isLoading
                             ? <span className="inline-block w-48 h-14 bg-white/10 animate-pulse" />
-                            : formatMoney(totalBalance, currency)}
+                            : totalBalanceDisplay}
                     </p>
                     <p className="font-bold text-sm opacity-50 mt-3 uppercase tracking-wider">
                         {isLoading ? '…' : `Across ${accounts.length} account${accounts.length !== 1 ? 's' : ''}`}

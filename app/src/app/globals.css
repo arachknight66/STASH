@@ -365,3 +365,111 @@ html.dark nav .nav-btn:hover {
     transform: translate(2px, 2px);
   }
 }
+
+/* ─── Phase 3D: Micro-Interactions & Motion System ──────────────────────────── */
+
+/* ── Tighter press state for touch devices ───────────────────────── */
+/* interactive-lift already handles hover; add a fast scale press for mobile */
+.interactive-card {
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
+}
+
+.interactive-card:active {
+  transform: scale(0.98) translate(1px, 1px);
+  box-shadow: 2px 2px 0px 0px #0c0f0f;
+}
+
+/* ── Count-up number animation target ────────────────────────────── */
+/* Numbers that count up should render with tabular figures for stability */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* ── Reduced motion — disable ALL animations globally ────────────── */
+@media (prefers-reduced-motion: reduce) {
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Stripe progress bar — static when reduced-motion is set */
+  .animate-stripes {
+    animation: none !important;
+    background-image: none !important;
+  }
+
+  /* Pulse sync badge — static */
+  .pulse-sync {
+    animation: none !important;
+    opacity: 1 !important;
+  }
+
+  /* Interactive lift — remove translate on hover */
+  .interactive-lift:hover,
+  .interactive-lift:focus-visible {
+    transform: none !important;
+  }
+
+  /* Hard shadow — keep visible but don't shift */
+  .interactive-card:active {
+    transform: none !important;
+    box-shadow: 4px 4px 0px 0px #0c0f0f !important;
+  }
+}
+
+/* ── Stat number glow — subtle pulse on value change ─────────────── */
+@keyframes stat-land {
+  0% {
+    opacity: 0.6;
+  }
+
+  60% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
+.stat-land {
+  animation: stat-land 0.4s ease forwards;
+}
+
+/* ── Page transition polish ───────────────────────────────────────── */
+/* Slightly faster stagger for page entry — feels snappier */
+/* Individual pages override with their own containerVariants;
+   this global rule applies to any motion.div without explicit stagger */
+.motion-stagger>* {
+  transition-delay: 40ms;
+}
+
+/* ── Focus ring improvements ─────────────────────────────────────── */
+/* Ensure focus rings are always visible regardless of dark mode */
+:focus-visible {
+  outline: 3px solid #a400a4;
+  outline-offset: 3px;
+}
+
+html.dark :focus-visible {
+  outline-color: #ef98fb;
+}
+
+/* ── Smooth scroll for in-page navigation ────────────────────────── */
+/* Respects reduced-motion via the media query above */
+html {
+  scroll-behavior: smooth;
+}
+
+/* ── Button active-press refinement ──────────────────────────────── */
+/* Ensure the active-press utility always overrides hard-shadow */
+.active-press:active {
+  transform: translate(4px, 4px) !important;
+  box-shadow: none !important;
+}

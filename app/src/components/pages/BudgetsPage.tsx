@@ -7,6 +7,7 @@ import { formatMoney, formatCompactMoney } from '@/lib/currencies';
 import { CATEGORY_META } from '@/lib/constants';
 import ActionModal from '@/components/ui/ActionModal';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useCountUp } from '@/hooks/useCountUp';
 
 type ModalConfig = React.ComponentProps<typeof ActionModal>['config'];
 
@@ -80,6 +81,14 @@ function OverallBudgetCard({
     const overBy = Math.max(budget.spent - budget.amount, 0);
     const clampPct = Math.min(budget.pct, 100);
 
+    const spentDisplay = useCountUp({
+        to: budget.spent,
+        duration: 900,
+        delay: 100,
+        enabled: budget.spent > 0,
+        format: (n) => formatMoney(n, currency),
+    });
+
     return (
         <motion.div
             variants={itemVariants}
@@ -108,10 +117,10 @@ function OverallBudgetCard({
                 </span>
             </div>
 
-            {/* Big numbers */}
+            {/* Big numbers — spent count-up animated */}
             <div className="flex items-baseline gap-3 flex-wrap mb-5 mt-4">
-                <span className="font-headline font-black text-5xl leading-none tracking-tighter">
-                    {formatMoney(budget.spent, currency)}
+                <span className="font-headline font-black text-5xl leading-none tracking-tighter tabular-nums">
+                    {spentDisplay}
                 </span>
                 <span className="font-headline font-bold text-xl opacity-50">
                     / {formatMoney(budget.amount, currency)}
@@ -247,11 +256,26 @@ export default function BudgetsPage() {
     // Aggregate stats
     const totalLimit = budgets.reduce((s, b) => s + b.amount, 0);
     const totalSpent = overallBudgets.length > 0
-        ? overallBudgets[0].spent   // overall budget tracks total spend already
+        ? overallBudgets[0].spent
         : budgets.reduce((s, b) => s + b.spent, 0);
     const overallPct = totalLimit > 0 ? Math.round((totalSpent / totalLimit) * 100) : 0;
     const anyOverBudget = budgets.some((b) => b.isOverBudget);
     const anyWarning = budgets.some((b) => b.isWarning);
+
+    // Count-up animated summary numbers
+    const totalLimitDisplay = useCountUp({
+        to: totalLimit,
+        duration: 800,
+        enabled: !isLoading && budgets.length > 0,
+        format: (n) => formatCompactMoney(n, currency),
+    });
+    const totalSpentDisplay = useCountUp({
+        to: totalSpent,
+        duration: 800,
+        delay: 60,
+        enabled: !isLoading && budgets.length > 0,
+        format: (n) => formatCompactMoney(n, currency),
+    });
 
     // ── Modals ─────────────────────────────────────────────────────────────
 
@@ -392,8 +416,8 @@ export default function BudgetsPage() {
                     <motion.div variants={itemVariants} className="grid grid-cols-3 gap-3">
                         {[
                             { label: 'Budgets', value: String(budgets.length) },
-                            { label: 'Total Limit', value: formatCompactMoney(totalLimit, currency) },
-                            { label: 'Total Spent', value: formatCompactMoney(totalSpent, currency) },
+                            { label: 'Total Limit', value: totalLimitDisplay },
+                            { label: 'Total Spent', value: totalSpentDisplay },
                         ].map((s) => (
                             <div
                                 key={s.label}

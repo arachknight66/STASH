@@ -18,6 +18,7 @@ import TransactionDetailDrawer, {
   type DrawerTransaction,
 } from '@/components/ui/TransactionDetailDrawer';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useCountUp } from '@/hooks/useCountUp';
 
 // ─── Animation variants ───────────────────────────────────────────────────────
 
@@ -174,6 +175,30 @@ export default function DashPage() {
   const txGroups = useMemo(() => groupByDate(recentTx), [recentTx]);
   const bucketList = buckets.slice(0, 4);
 
+  // ── Count-up animated display values ──────────────────────────────
+  // Only animate once stats have loaded — enabled: !statsLoading prevents
+  // animating from 0 to 0 then 0 to real value (which would look broken)
+  const liquidityDisplay = useCountUp({
+    to: liquidity,
+    duration: 1000,
+    delay: 150,
+    enabled: !statsLoading,
+    format: (n) => formatMoney(n, currency),
+  });
+  const dailyBurnDisplay = useCountUp({
+    to: dailyBurn,
+    duration: 800,
+    enabled: !statsLoading,
+    format: (n) => formatCompactMoney(n, currency),
+  });
+  const netWorthDisplay = useCountUp({
+    to: netWorth,
+    duration: 800,
+    delay: 60,
+    enabled: !statsLoading,
+    format: (n) => formatCompactMoney(n, currency),
+  });
+
   // ── FAB action listener ────────────────────────────────────────────────
   useEffect(() => {
     if (!pendingFabAction) return;
@@ -271,18 +296,18 @@ export default function DashPage() {
             </p>
           </div>
 
-          {/* THE NUMBER */}
+          {/* THE NUMBER — count-up animated */}
           <div className="mb-2">
             {statsLoading
               ? <div className="h-16 w-56 bg-white/10 animate-pulse" />
               : (
                 <motion.p
-                  className="font-headline font-black text-6xl sm:text-7xl leading-none tracking-tighter"
+                  className="font-headline font-black text-6xl sm:text-7xl leading-none tracking-tighter tabular-nums"
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.1, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
                 >
-                  {formatMoney(liquidity, currency)}
+                  {liquidityDisplay}
                 </motion.p>
               )}
             <p className="font-bold text-xs opacity-40 uppercase tracking-widest mt-1.5">
@@ -352,13 +377,13 @@ export default function DashPage() {
             {statsLoading
               ? [0, 1, 2].map((i) => <StatTileSkeleton key={i} />)
               : [
-                { label: 'Daily Burn', value: formatCompactMoney(dailyBurn, currency), sub: 'avg per day', bg: 'bg-white' },
+                { label: 'Daily Burn', value: dailyBurnDisplay, sub: 'avg per day', bg: 'bg-white' },
                 { label: 'Runway', value: runway > 365 ? '1yr+' : `${runway}d`, sub: 'at current pace', bg: runway < 30 ? 'bg-error-container' : runway < 90 ? 'bg-[#fff3cd]' : 'bg-primary-container' },
-                { label: 'Net Worth', value: formatCompactMoney(netWorth, currency), sub: 'liquidity + savings', bg: 'bg-tertiary-container' },
+                { label: 'Net Worth', value: netWorthDisplay, sub: 'liquidity + savings', bg: 'bg-tertiary-container' },
               ].map(({ label, value, sub, bg }) => (
                 <div key={label} className={`${bg} border-4 border-inverse-surface hard-shadow p-4 shrink-0 min-w-[130px] snap-start`}>
                   <p className="font-headline font-black text-[9px] uppercase tracking-widest opacity-60 mb-1">{label}</p>
-                  <p className="font-headline font-black text-2xl leading-none">{value}</p>
+                  <p className="font-headline font-black text-2xl leading-none tabular-nums">{value}</p>
                   <p className="font-bold text-[10px] text-on-surface-variant opacity-70 mt-1">{sub}</p>
                 </div>
               ))}

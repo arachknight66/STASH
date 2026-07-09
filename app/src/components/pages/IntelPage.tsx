@@ -205,7 +205,7 @@ export default function IntelPage() {
         ].map(({ label, value, bg, sub }) => (
           <div
             key={label}
-            className={`interactive-lift ${bg} border-4 border-inverse-surface p-5 hard-shadow`}
+            className={`interactive-lift interactive-card ${bg} border-4 border-inverse-surface p-5 hard-shadow`}
           >
             <p className="text-[10px] font-black uppercase tracking-[0.22em] opacity-70">{label}</p>
             <p className="font-headline font-black text-4xl mt-2">{value}</p>
