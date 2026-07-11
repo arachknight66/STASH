@@ -166,8 +166,10 @@ export default function BottomNav({ onFabAction }: BottomNavProps) {
                   />
                 )}
 
-                <motion.div
-                  className="relative z-10 flex flex-col items-center justify-center gap-[3px] pointer-events-none"
+                 <motion.div
+                  className={`relative z-10 flex flex-col items-center justify-center gap-[3px] pointer-events-none transition-opacity duration-150 ${
+                    isActive ? 'opacity-100' : 'opacity-80'
+                  }`}
                   whileTap={{ scale: 0.85 }}
                   transition={{ type: 'spring', stiffness: 500, damping: 28 }}
                 >
@@ -187,8 +189,8 @@ export default function BottomNav({ onFabAction }: BottomNavProps) {
                     className={[
                       'font-headline uppercase leading-none transition-all duration-150',
                       isActive
-                        ? 'text-[9px] font-black tracking-widest opacity-100'
-                        : 'text-[8px] font-bold tracking-wider opacity-60',
+                        ? 'text-[9px] font-black tracking-widest'
+                        : 'text-[8px] font-bold tracking-wider',
                     ].join(' ')}
                   >
                     {item.label}

@@ -29,7 +29,7 @@ export default function Header() {
 
   return (
     <>
-      <header className="bg-background dark:bg-[#0b0f11] border-b-4 border-inverse-surface sticky top-0 z-50 flex justify-between items-center w-full px-5 py-3.5">
+      <header className="bg-white dark:bg-[#0b0f11] border-b-4 border-inverse-surface sticky top-0 z-50 flex justify-between items-center w-full px-5 py-3.5">
         {/* Logo */}
         <button
           onClick={() => navigate('dash')}
