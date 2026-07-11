@@ -162,7 +162,7 @@ export default function BottomNav({ onFabAction }: BottomNavProps) {
                   <motion.div
                     layoutId="activeNavPill"
                     transition={{ type: 'spring', stiffness: 420, damping: 32 }}
-                    className="absolute inset-x-2 inset-y-1.5 bg-[#ffbdf3] dark:bg-[#1e3a2e] border-2 border-inverse-surface/60"
+                    className="absolute inset-x-2 inset-y-1.5 bg-[#ffbdf3] dark:bg-[#cafd00] border-2 border-inverse-surface/60"
                   />
                 )}
 
@@ -174,7 +174,11 @@ export default function BottomNav({ onFabAction }: BottomNavProps) {
                   transition={{ type: 'spring', stiffness: 500, damping: 28 }}
                 >
                   <span
-                    className="material-symbols-outlined text-inverse-surface leading-none"
+                    className={`material-symbols-outlined leading-none ${
+                      isActive 
+                        ? 'text-inverse-surface dark:text-[#0c0f0f]' 
+                        : 'text-inverse-surface dark:text-[#f2f5f7]'
+                    }`}
                     style={{
                       fontSize: '22px',
                       fontVariationSettings: isActive
@@ -189,8 +193,8 @@ export default function BottomNav({ onFabAction }: BottomNavProps) {
                     className={[
                       'font-headline uppercase leading-none transition-all duration-150',
                       isActive
-                        ? 'text-[9px] font-black tracking-widest'
-                        : 'text-[8px] font-bold tracking-wider',
+                        ? 'text-[9px] font-black tracking-widest text-inverse-surface dark:text-[#0c0f0f]'
+                        : 'text-[8px] font-bold tracking-wider text-inverse-surface dark:text-[#f2f5f7]',
                     ].join(' ')}
                   >
                     {item.label}

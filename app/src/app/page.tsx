@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAppStore } from '@/store/app';
 
 interface MockTransaction {
   id: number;
@@ -13,6 +14,13 @@ interface MockTransaction {
 }
 
 export default function LandingPage() {
+  const darkMode = useAppStore((s) => s.darkMode);
+
+  // Sync dark mode class on <html>
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', darkMode);
+  }, [darkMode]);
+
   // Live Sandbox state for the interactive smartphone mockup
   const [mockBalance, setMockBalance] = useState(12450.00);
   const [mockBaliSaved, setMockBaliSaved] = useState(84); // percentage

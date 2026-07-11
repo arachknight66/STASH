@@ -51,10 +51,6 @@ export default function Home() {
 
   const [shortcutsModal, setShortcutsModal] = useState<any>(null);
 
-  // Sync dark mode class on <html>
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', darkMode);
-  }, [darkMode]);
 
   // FAB handler — navigates to the right page then sets the pending action
   // so the mounted page can open the correct modal
