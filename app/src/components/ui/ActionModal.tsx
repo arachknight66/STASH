@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { haptics } from '@/lib/haptics';
 
 interface ModalField {
   name: string;
@@ -25,6 +26,7 @@ interface ModalConfig {
   submitLabel?: string;
   fields: ModalField[];
   onSubmit: (values: Record<string, string>) => boolean | void;
+  description?: React.ReactNode;
 }
 
 interface ActionModalProps {
@@ -115,7 +117,10 @@ export default function ActionModal({ config, onClose }: ActionModalProps) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
-            onClick={onClose}
+            onClick={() => {
+              haptics.light();
+              onClose();
+            }}
             className="fixed inset-0 bg-black/55 z-[80]"
             aria-hidden="true"
           />
@@ -154,7 +159,10 @@ export default function ActionModal({ config, onClose }: ActionModalProps) {
               </div>
               <button
                 type="button"
-                onClick={onClose}
+                onClick={() => {
+                  haptics.light();
+                  onClose();
+                }}
                 className="material-symbols-outlined text-2xl hover:rotate-90 transition-transform cursor-pointer shrink-0 mt-0.5"
                 aria-label="Close modal"
               >
@@ -169,6 +177,7 @@ export default function ActionModal({ config, onClose }: ActionModalProps) {
               onSubmit={handleSubmit}
               className="flex-1 overflow-y-auto p-5 space-y-4 min-h-0"
             >
+              {config.description}
               {config.fields.map((field) => (
                 <label key={field.name} className="block">
                   <span className="font-headline font-black text-xs uppercase tracking-widest text-on-surface-variant">
@@ -230,21 +239,31 @@ export default function ActionModal({ config, onClose }: ActionModalProps) {
             </form>
 
             {/* Footer — fixed at bottom, never scrolls */}
-            <div className="px-5 pb-5 pt-3 grid grid-cols-2 gap-3 border-t-2 border-inverse-surface shrink-0">
+            <div className={`px-5 pb-5 pt-3 border-t-2 border-inverse-surface shrink-0 ${
+              config.submitLabel ? 'grid grid-cols-2 gap-3' : 'flex'
+            }`}>
               <button
                 type="button"
-                onClick={onClose}
-                className="border-2 border-inverse-surface py-3 font-headline font-black uppercase text-xs hover:bg-surface-container transition-colors active-press cursor-pointer"
+                onClick={() => {
+                  haptics.light();
+                  onClose();
+                }}
+                className={`border-2 border-inverse-surface py-3 font-headline font-black uppercase text-xs hover:bg-surface-container transition-colors active-press cursor-pointer ${
+                  config.submitLabel ? '' : 'w-full text-center'
+                }`}
               >
-                Cancel
+                {config.submitLabel ? 'Cancel' : 'Close'}
               </button>
-              <button
-                type="submit"
-                form="action-modal-form"
-                className="bg-primary-container border-2 border-inverse-surface py-3 font-headline font-black uppercase text-xs hard-shadow-sm hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all active-press cursor-pointer"
-              >
-                {config.submitLabel ?? 'Confirm'}
-              </button>
+              {config.submitLabel && (
+                <button
+                  type="submit"
+                  form="action-modal-form"
+                  onClick={() => haptics.light()}
+                  className="bg-primary-container border-2 border-inverse-surface py-3 font-headline font-black uppercase text-xs hard-shadow-sm hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all active-press cursor-pointer"
+                >
+                  {config.submitLabel}
+                </button>
+              )}
             </div>
           </motion.div>
         </>

@@ -22,6 +22,7 @@ interface AppState {
   currency: CurrencyCode;
   toast: { message: string; id: number; type?: 'success' | 'error' | 'info' } | null;
   pendingFabAction: FabAction;
+  weeklyDigestOpen: boolean;
 
   navigate: (page: Page) => void;
   setDarkMode: (enabled: boolean) => void;
@@ -30,6 +31,7 @@ interface AppState {
   dismissToast: () => void;
   setPendingFabAction: (action: FabAction) => void;
   clearPendingFabAction: () => void;
+  setWeeklyDigestOpen: (open: boolean) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -40,6 +42,7 @@ export const useAppStore = create<AppState>()(
       currency: 'USD',
       toast: null,
       pendingFabAction: null,
+      weeklyDigestOpen: false,
 
       navigate: (page) => set({ currentPage: page }),
       setDarkMode: (darkMode) => set({ darkMode }),
@@ -49,6 +52,7 @@ export const useAppStore = create<AppState>()(
       dismissToast: () => set({ toast: null }),
       setPendingFabAction: (action) => set({ pendingFabAction: action }),
       clearPendingFabAction: () => set({ pendingFabAction: null }),
+      setWeeklyDigestOpen: (open) => set({ weeklyDigestOpen: open }),
     }),
     {
       name: 'stash-app',

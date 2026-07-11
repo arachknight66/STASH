@@ -35,6 +35,8 @@ export async function upsertSettings(userId: string, input: UpdateSettingsInput)
     currency:     input.currency     !== undefined ? input.currency     : (snap.data()?.currency ?? Currency.USD),
     pushNotifs:   input.pushNotifs   !== undefined ? input.pushNotifs   : (snap.data()?.pushNotifs ?? true),
     budgetAlerts: input.budgetAlerts !== undefined ? input.budgetAlerts : (snap.data()?.budgetAlerts ?? true),
+    hasOnboarded: input.hasOnboarded !== undefined ? input.hasOnboarded : (snap.data()?.hasOnboarded ?? false),
+    monthlyIncome:input.monthlyIncome !== undefined ? input.monthlyIncome : (snap.data()?.monthlyIncome ?? 0),
     updatedAt:    new Date().toISOString(),
   };
 

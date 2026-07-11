@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useAppStore } from '@/store/app';
 import { useBudgets, useCreateBudget, useDeleteBudget, type EnrichedBudget } from '@/hooks/useStash';
-import { formatMoney, formatCompactMoney } from '@/lib/currencies';
+import { formatMoney, formatCompactMoney, type CurrencyCode } from '@/lib/currencies';
 import { CATEGORY_META } from '@/lib/constants';
 import ActionModal from '@/components/ui/ActionModal';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -74,7 +74,7 @@ function OverallBudgetCard({
     onDelete,
 }: {
     budget: EnrichedBudget;
-    currency: string;
+    currency: CurrencyCode;
     onDelete: () => void;
 }) {
     const remaining = Math.max(budget.amount - budget.spent, 0);
@@ -168,7 +168,7 @@ function CategoryBudgetCard({
     onDelete,
 }: {
     budget: EnrichedBudget;
-    currency: string;
+    currency: CurrencyCode;
     onDelete: () => void;
 }) {
     const meta = CATEGORY_META[budget.category ?? ''] ?? CATEGORY_META.OTHER;

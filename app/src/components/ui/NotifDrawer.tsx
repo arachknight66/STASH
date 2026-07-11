@@ -9,6 +9,7 @@ const NOTIF_ICONS: Record<string, string> = {
   BUCKET_MILESTONE: 'bolt',
   BUDGET_ALERT: 'warning',
   PAYDAY: 'payments',
+  WEEKLY_DIGEST: 'insights',
   GENERAL: 'notifications',
 };
 
@@ -16,6 +17,7 @@ const NOTIF_ICON_COLORS: Record<string, string> = {
   BUCKET_MILESTONE: 'text-primary',
   BUDGET_ALERT: 'text-error',
   PAYDAY: 'text-tertiary',
+  WEEKLY_DIGEST: 'text-[#ffbdf3]',
   GENERAL: 'text-on-surface-variant',
 };
 
@@ -36,6 +38,7 @@ interface NotifDrawerProps {
 
 export default function NotifDrawer({ open, onClose }: NotifDrawerProps) {
   const navigate = useAppStore((s) => s.navigate);
+  const setWeeklyDigestOpen = useAppStore((s) => s.setWeeklyDigestOpen);
   const { data: notifications = [], isLoading } = useNotifications();
   const clear = useClearNotifications();
 
@@ -47,6 +50,11 @@ export default function NotifDrawer({ open, onClose }: NotifDrawerProps) {
   }
 
   function handleNotifClick(n: Notification) {
+    if (n.type === 'WEEKLY_DIGEST') {
+      setWeeklyDigestOpen(true);
+      onClose();
+      return;
+    }
     const page = resolvePage(n.link);
     if (page) navigate(page);
     onClose();

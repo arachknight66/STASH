@@ -188,6 +188,8 @@ export const UpdateSettingsSchema = z.object({
   currency:     CurrencyEnum.optional(),
   pushNotifs:   z.boolean().optional(),
   budgetAlerts: z.boolean().optional(),
+  hasOnboarded: z.boolean().optional(),
+  monthlyIncome:z.number().optional(),
 });
 
 // ─── Inferred types ───────────────────────────────────────────────────────────

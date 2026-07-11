@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAppStore } from '@/store/app';
 import { formatMoney } from '@/lib/currencies';
 import ActionModal from '@/components/ui/ActionModal';
 import { motion, AnimatePresence } from 'framer-motion';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 
 interface Bill {
   id: string;
@@ -105,10 +106,16 @@ export default function BillsPage() {
   const qc = useQueryClient();
   const [modal, setModal] = useState<ModalConfig | null>(null);
 
-  const { data, isLoading } = useQuery<{ bills: Bill[] }>({
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const { data, isLoading, refetch } = useQuery<{ bills: Bill[] }>({
     queryKey: ['bills'],
     queryFn: () =>
       fetch('/api/bills').then((r) => r.json()).then((d) => d.data),
+  });
+
+  const { isPulling, pullDistance, isRefreshing } = usePullToRefresh(containerRef, () => {
+    refetch();
   });
 
   // Fetch accounts for the account selector in create/pay modals
@@ -332,11 +339,31 @@ export default function BillsPage() {
   return (
     <>
       <motion.main
+        ref={containerRef}
         variants={containerVariants}
         initial="hidden"
         animate="show"
         className="p-6 space-y-8 max-w-2xl mx-auto"
       >
+        <AnimatePresence>
+          {(isPulling || isRefreshing) && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 48, opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="flex items-center justify-center bg-primary-container border-b-2 border-inverse-surface"
+            >
+              <motion.span
+                animate={{ rotate: isRefreshing ? 360 : pullDistance * 3 }}
+                transition={isRefreshing ? { repeat: Infinity, duration: 0.6, ease: 'linear' } : { duration: 0 }}
+                className="material-symbols-outlined text-2xl"
+                style={{ fontVariationSettings: "'FILL' 1" }}
+              >
+                {isRefreshing ? 'sync' : 'arrow_downward'}
+              </motion.span>
+            </motion.div>
+          )}
+        </AnimatePresence>
         {/* Header */}
         <motion.div variants={itemVariants} className="flex justify-between items-start gap-4 flex-wrap">
           <div>

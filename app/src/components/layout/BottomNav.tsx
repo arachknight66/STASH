@@ -3,6 +3,7 @@
 import { useAppStore, type Page } from '@/store/app';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useRef } from 'react';
+import { haptics } from '@/lib/haptics';
 
 // 5 primary nav items
 const NAV_ITEMS: { id: Page; label: string; icon: string }[] = [
@@ -40,6 +41,7 @@ export default function BottomNav({ onFabAction }: BottomNavProps) {
   const fabRef = useRef<HTMLButtonElement>(null);
 
   const handleFabAction = (item: typeof FAB_ACTIONS[0]) => {
+    haptics.light();
     setFabOpen(false);
     if (item.page) {
       navigate(item.page);
@@ -111,7 +113,10 @@ export default function BottomNav({ onFabAction }: BottomNavProps) {
       {/* FAB button */}
       <motion.button
         ref={fabRef}
-        onClick={() => setFabOpen((p) => !p)}
+        onClick={() => {
+          haptics.light();
+          setFabOpen((p) => !p);
+        }}
         whileTap={{ scale: 0.92 }}
         className="fixed bottom-[84px] right-4 z-[49] w-14 h-14 bg-secondary border-4 border-inverse-surface hard-shadow cursor-pointer flex items-center justify-center"
         aria-label="Quick actions"
@@ -142,7 +147,10 @@ export default function BottomNav({ onFabAction }: BottomNavProps) {
               <button
                 key={item.id}
                 id={`nav-${item.id}`}
-                onClick={() => navigate(item.id)}
+                onClick={() => {
+                  haptics.light();
+                  navigate(item.id);
+                }}
                 className={[
                   'relative flex flex-col items-center justify-center h-full outline-none select-none cursor-pointer transition-colors duration-100',
                   i < NAV_ITEMS.length - 1 ? 'border-r-2 border-inverse-surface/30' : '',

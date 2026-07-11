@@ -9,6 +9,7 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { useAppStore } from '@/store/app';
 import { useDeleteTransaction } from '@/hooks/useStash';
+import { haptics } from '@/lib/haptics';
 import { formatMoney } from '@/lib/currencies';
 import { CATEGORY_META } from '@/lib/constants';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
@@ -343,20 +344,30 @@ export default function TransactionDetailDrawer({
                             </div>
 
                             {/* ── AI Insight ─────────────────────────────────────── */}
-                            {transaction.aiInsight && (
-                                <div className="mx-6 mt-5 bg-surface-container border-2 border-inverse-surface p-4">
-                                    <p className="font-headline font-black uppercase text-[10px] tracking-[0.18em] mb-1.5 flex items-center gap-1.5 text-on-surface-variant">
-                                        <span
-                                            className="material-symbols-outlined text-sm leading-none"
-                                            style={{ fontVariationSettings: "'FILL' 1" }}
-                                        >
-                                            psychology
-                                        </span>
-                                        AI Insight
-                                    </p>
-                                    <p className="font-bold text-sm leading-snug">{transaction.aiInsight}</p>
-                                </div>
-                            )}
+                            {transaction.aiInsight && (() => {
+                                const insightText = transaction.aiInsight ?? '';
+                                const isUnusual = ['unusual', 'spike', 'exceeded', 'high', 'warning', 'abnormal', 'anomaly'].some(
+                                    (kw) => insightText.toLowerCase().includes(kw)
+                                );
+                                return (
+                                    <div className={`mx-6 mt-5 border-2 p-4 ${
+                                        isUnusual 
+                                            ? 'bg-[#ffbdf3] border-inverse-surface text-inverse-surface' 
+                                            : 'bg-surface-container border-inverse-surface'
+                                    }`}>
+                                        <p className="font-headline font-black uppercase text-[10px] tracking-[0.18em] mb-1.5 flex items-center gap-1.5 text-on-surface-variant">
+                                            <span
+                                                className="material-symbols-outlined text-sm leading-none"
+                                                style={{ fontVariationSettings: "'FILL' 1" }}
+                                            >
+                                                psychology
+                                            </span>
+                                            AI Insight
+                                        </p>
+                                        <p className="font-bold text-sm leading-snug">{transaction.aiInsight}</p>
+                                    </div>
+                                );
+                            })()}
 
                             {/* ── Details grid ───────────────────────────────────── */}
                             <div className="mx-6 mt-5 grid grid-cols-2 gap-3">
@@ -490,7 +501,10 @@ export default function TransactionDetailDrawer({
                         {/* ── Footer: delete ──────────────────────────────────────── */}
                         <div className="px-6 py-4 border-t-2 border-inverse-surface/10 shrink-0 flex items-center justify-between gap-4">
                             <button
-                                onClick={onClose}
+                                onClick={() => {
+                                    haptics.light();
+                                    onClose();
+                                }}
                                 className="border-2 border-inverse-surface px-5 py-2.5 font-headline font-black text-xs uppercase hover:bg-surface-container transition-colors cursor-pointer"
                             >
                                 Close
@@ -507,14 +521,20 @@ export default function TransactionDetailDrawer({
                                     >
                                         <span className="font-bold text-xs text-error uppercase">Sure?</span>
                                         <button
-                                            onClick={handleDelete}
+                                            onClick={() => {
+                                                haptics.light();
+                                                handleDelete();
+                                            }}
                                             disabled={deleteTx.isPending || isOptimistic}
                                             className="bg-error text-white border-2 border-error px-4 py-2 font-headline font-black text-xs uppercase cursor-pointer disabled:opacity-50"
                                         >
                                             {deleteTx.isPending ? 'Deleting…' : 'Delete'}
                                         </button>
                                         <button
-                                            onClick={() => setConfirmDelete(false)}
+                                            onClick={() => {
+                                                haptics.light();
+                                                setConfirmDelete(false);
+                                            }}
                                             className="border-2 border-inverse-surface px-3 py-2 font-headline font-black text-xs uppercase hover:bg-surface-container transition-colors cursor-pointer"
                                         >
                                             Cancel
@@ -526,7 +546,10 @@ export default function TransactionDetailDrawer({
                                         initial={{ opacity: 0 }}
                                         animate={{ opacity: 1 }}
                                         exit={{ opacity: 0 }}
-                                        onClick={() => setConfirmDelete(true)}
+                                        onClick={() => {
+                                            haptics.light();
+                                            setConfirmDelete(true);
+                                        }}
                                         disabled={isOptimistic}
                                         className="flex items-center gap-1.5 text-xs font-bold uppercase text-on-surface-variant hover:text-error transition-colors cursor-pointer disabled:opacity-30"
                                     >

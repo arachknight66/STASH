@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAppStore } from '@/store/app';
 import { useBuckets, useCreateBucket, useBoostBucket, useDeleteBucket } from '@/hooks/useStash';
 import { formatMoney, displayToUsd } from '@/lib/currencies';
@@ -8,6 +8,7 @@ import { BUCKET_THEME_CLASSES } from '@/lib/constants';
 import ActionModal from '@/components/ui/ActionModal';
 import type { Bucket } from '@/lib/types';
 import { motion, AnimatePresence } from 'framer-motion';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -45,10 +46,16 @@ export default function BucketsPage() {
   const pendingFabAction = useAppStore((s) => s.pendingFabAction);
   const clearPendingFabAction = useAppStore((s) => s.clearPendingFabAction);
 
-  const { data: buckets = [], isLoading } = useBuckets();
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const { data: buckets = [], isLoading, refetch } = useBuckets();
   const createBucket = useCreateBucket();
   const boostBucket = useBoostBucket();
   const deleteBucket = useDeleteBucket();
+
+  const { isPulling, pullDistance, isRefreshing } = usePullToRefresh(containerRef, () => {
+    refetch();
+  });
 
   const [filter, setFilter] = useState<Filter>('all');
   const [modal, setModal] = useState<ModalConfig | null>(null);
@@ -184,7 +191,15 @@ export default function BucketsPage() {
         const amt = displayToUsd(displayAmt, currency);
         boostBucket.mutate(
           { id: b.id, amountUsd: amt },
-          { onSuccess: () => showToast(`Boosted ${b.name}! ⚡`, 'success') },
+          {
+            onSuccess: () => {
+              const remaining = Math.max(b.targetUsd - (b.savedUsd + amt), 0);
+              const etaMsg    = b.monthlyUsd > 0
+                ? (() => { const m = Math.ceil(remaining / b.monthlyUsd); return m <= 0 ? 'almost funded! 🎯' : `funded in ${m} month${m > 1 ? 's' : ''} ⚡`; })()
+                : 'boosted! ⚡';
+              showToast(`${b.name} — ${etaMsg}`, 'success');
+            }
+          },
         );
         return true;
       },
@@ -196,11 +211,31 @@ export default function BucketsPage() {
   return (
     <>
       <motion.main
+        ref={containerRef}
         variants={containerVariants}
         initial="hidden"
         animate="show"
         className="p-6 max-w-4xl mx-auto"
       >
+        <AnimatePresence>
+          {(isPulling || isRefreshing) && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 48, opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="flex items-center justify-center bg-primary-container border-b-2 border-inverse-surface mb-4"
+            >
+              <motion.span
+                animate={{ rotate: isRefreshing ? 360 : pullDistance * 3 }}
+                transition={isRefreshing ? { repeat: Infinity, duration: 0.6, ease: 'linear' } : { duration: 0 }}
+                className="material-symbols-outlined text-2xl"
+                style={{ fontVariationSettings: "'FILL' 1" }}
+              >
+                {isRefreshing ? 'sync' : 'arrow_downward'}
+              </motion.span>
+            </motion.div>
+          )}
+        </AnimatePresence>
         {/* Header */}
         <motion.div
           variants={itemVariants}

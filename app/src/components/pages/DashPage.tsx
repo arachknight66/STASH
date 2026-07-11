@@ -9,6 +9,7 @@ import {
   useBudgets,
   useBuckets,
   useBoostBucket,
+  useAccounts,
   type EnrichedBudget,
 } from '@/hooks/useStash';
 import { formatMoney, formatCompactMoney, displayToUsd } from '@/lib/currencies';
@@ -125,6 +126,39 @@ function ReceiptSkeleton() {
   );
 }
 
+function ChecklistItem({ isDone, label, onClick }: { isDone: boolean; label: string; onClick: () => void }) {
+  const [shouldRender, setShouldRender] = useState(true);
+
+  useEffect(() => {
+    if (isDone) {
+      const timer = setTimeout(() => {
+        setShouldRender(false);
+      }, 1000);
+      return () => clearTimeout(timer);
+    } else {
+      setShouldRender(true);
+    }
+  }, [isDone]);
+
+  return (
+    <AnimatePresence>
+      {shouldRender && (
+        <motion.div
+          initial={{ opacity: 1, height: 'auto' }}
+          exit={{ opacity: 0, height: 0, padding: 0, marginTop: 0, marginBottom: 0, borderWidth: 0, overflow: 'hidden', transition: { duration: 0.3 } }}
+          onClick={onClick}
+          className="flex items-center gap-3 p-3 bg-surface-container border-2 border-inverse-surface cursor-pointer interactive-lift select-none"
+        >
+          <div className={`w-6 h-6 border-2 border-inverse-surface flex items-center justify-center shrink-0 transition-colors ${isDone ? 'bg-[#cafd00]' : 'bg-white dark:bg-[#1d252b]'}`}>
+            {isDone && <span className="material-symbols-outlined text-inverse-surface font-black text-lg">check</span>}
+          </div>
+          <span className={`font-headline font-bold text-xs uppercase ${isDone ? 'line-through opacity-50' : ''}`}>{label}</span>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
 // ─── DashPage ─────────────────────────────────────────────────────────────────
 
 export default function DashPage() {
@@ -138,12 +172,32 @@ export default function DashPage() {
   const { data: txData } = useTransactions({ limit: '5' });
   const { data: buckets = [] } = useBuckets();
   const { data: budgets = [] } = useBudgets();
+  const { data: accounts = [] } = useAccounts();
 
   const createTx = useCreateTransaction();
   const boostBucket = useBoostBucket();
 
   const [modal, setModal] = useState<ModalConfig | null>(null);
   const [selectedTx, setSelectedTx] = useState<DrawerTransaction | null>(null);
+
+  const recentTx = txData?.items ?? [];
+
+  const isTxDone = (txData?.total ?? 0) > 0 || recentTx.length > 0;
+  const isBudgetDone = budgets.length > 0;
+  const isBucketDone = buckets.length > 0;
+  const isAccountDone = accounts.length > 0;
+  const allCompleted = isTxDone && isBudgetDone && isBucketDone && isAccountDone;
+
+  const [checklistDismissed, setChecklistDismissed] = useState(true);
+  useEffect(() => {
+    const dismissed = localStorage.getItem('stash-checklist-dismissed') === 'true';
+    setChecklistDismissed(dismissed);
+  }, []);
+
+  const handleDismissChecklist = () => {
+    localStorage.setItem('stash-checklist-dismissed', 'true');
+    setChecklistDismissed(true);
+  };
 
   // Budget lookup map for Heat Map
   const budgetByCategory = useMemo(() => {
@@ -171,7 +225,6 @@ export default function DashPage() {
     .sort(([, a], [, b]) => b - a)
     .slice(0, 4);
 
-  const recentTx = txData?.items ?? [];
   const txGroups = useMemo(() => groupByDate(recentTx), [recentTx]);
   const bucketList = buckets.slice(0, 4);
 
@@ -370,6 +423,54 @@ export default function DashPage() {
             <span className="font-headline font-black text-[180px] leading-none">$</span>
           </div>
         </motion.section>
+
+        {/* Setup Checklist */}
+        <AnimatePresence>
+          {!allCompleted && !checklistDismissed && (
+            <motion.section
+              variants={itemVariants}
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="px-6 pt-5"
+            >
+              <div className="bg-white dark:bg-[#161d22] border-4 border-inverse-surface hard-shadow p-5 relative">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="font-headline font-black text-sm uppercase tracking-wider text-inverse-surface dark:text-white">LOCKED IN: GETTING STARTED</h3>
+                  <button
+                    onClick={handleDismissChecklist}
+                    className="cursor-pointer text-inverse-surface dark:text-white hover:text-error transition-colors flex items-center justify-center"
+                    aria-label="Dismiss checklist"
+                  >
+                    <span className="material-symbols-outlined text-xl">close</span>
+                  </button>
+                </div>
+                <div className="space-y-2.5">
+                  <ChecklistItem
+                    isDone={isTxDone}
+                    label="Log your first transaction"
+                    onClick={openQuickSpend}
+                  />
+                  <ChecklistItem
+                    isDone={isBudgetDone}
+                    label="Set a budget"
+                    onClick={() => navigate('budgets')}
+                  />
+                  <ChecklistItem
+                    isDone={isBucketDone}
+                    label="Create a savings bucket"
+                    onClick={() => navigate('buckets')}
+                  />
+                  <ChecklistItem
+                    isDone={isAccountDone}
+                    label="Add an account"
+                    onClick={() => navigate('vault')}
+                  />
+                </div>
+              </div>
+            </motion.section>
+          )}
+        </AnimatePresence>
 
         {/* ── 2. QUICK STAT TILES ─────────────────────────────────────── */}
         <motion.section variants={itemVariants} className="px-6 pt-5">

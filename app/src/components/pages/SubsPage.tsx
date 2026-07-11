@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAppStore } from '@/store/app';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { formatMoney } from '@/lib/currencies';
 import ActionModal from '@/components/ui/ActionModal';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -134,8 +135,19 @@ function SubSkeleton() {
 export default function SubsPage() {
   const currency = useAppStore((s) => s.currency);
   const showToast = useAppStore((s) => s.showToast);
+  const navigate = useAppStore((s) => s.navigate);
   const qc = useQueryClient();
   const [modal, setModal] = useState<ModalConfig | null>(null);
+
+  const [auditDismissed, setAuditDismissed] = useState(true);
+  useEffect(() => {
+    setAuditDismissed(sessionStorage.getItem('stash-sub-audit-dismissed') === 'true');
+  }, []);
+
+  const handleDismissAudit = () => {
+    sessionStorage.setItem('stash-sub-audit-dismissed', 'true');
+    setAuditDismissed(true);
+  };
 
   // Persist dismissed suggestions across navigations
   const [dismissedSuggestions, setDismissedSuggestions] = useState<Set<string>>(() => {
@@ -160,22 +172,28 @@ export default function SubsPage() {
 
   // ── Data fetching ──────────────────────────────────────────────────────
 
-  const { data: subsData, isLoading: subsLoading } = useQuery<{ subscriptions: Subscription[] }>({
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const { data: subsData, isLoading: subsLoading, refetch: refetchSubs } = useQuery<{ subscriptions: Subscription[] }>({
     queryKey: ['subscriptions'],
     queryFn: () =>
       fetch('/api/subscriptions').then((r) => r.json()).then((d) => d.data),
   });
 
-  const { data: burdenData, isLoading: burdenLoading } = useQuery<BurdenData>({
+  const { data: burdenData, isLoading: burdenLoading, refetch: refetchBurden } = useQuery<BurdenData>({
     queryKey: ['subscriptions-burden'],
     queryFn: () =>
       fetch('/api/subscriptions?view=burden').then((r) => r.json()).then((d) => d.data),
   });
 
-  const { data: suggestData } = useQuery<{ suggestions: Suggestion[] }>({
+  const { data: suggestData, refetch: refetchSuggestions } = useQuery<{ suggestions: Suggestion[] }>({
     queryKey: ['subscriptions-suggestions'],
     queryFn: () =>
       fetch('/api/subscriptions?view=suggestions').then((r) => r.json()).then((d) => d.data),
+  });
+
+  const { isPulling, pullDistance, isRefreshing } = usePullToRefresh(containerRef, async () => {
+    await Promise.all([refetchSubs(), refetchBurden(), refetchSuggestions()]);
   });
 
   const { data: accountsData } = useQuery<{ accounts: Account[] }>({
@@ -251,6 +269,7 @@ export default function SubsPage() {
   const active = subs.filter((s) => s.status === 'ACTIVE' || s.status === 'TRIAL');
   const paused = subs.filter((s) => s.status === 'PAUSED');
   const burden = burdenData;
+  const mostExpensive = active.length > 0 ? active.reduce((a, b) => (a.amount > b.amount ? a : b)) : null;
   const suggestions = (suggestData?.suggestions ?? []).filter(
     (s) => !dismissedSuggestions.has(s.merchant),
   );
@@ -391,11 +410,31 @@ export default function SubsPage() {
   return (
     <>
       <motion.main
+        ref={containerRef}
         variants={containerVariants}
         initial="hidden"
         animate="show"
         className="p-6 space-y-8 max-w-2xl mx-auto"
       >
+        <AnimatePresence>
+          {(isPulling || isRefreshing) && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 48, opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="flex items-center justify-center bg-primary-container border-b-2 border-inverse-surface"
+            >
+              <motion.span
+                animate={{ rotate: isRefreshing ? 360 : pullDistance * 3 }}
+                transition={isRefreshing ? { repeat: Infinity, duration: 0.6, ease: 'linear' } : { duration: 0 }}
+                className="material-symbols-outlined text-2xl"
+                style={{ fontVariationSettings: "'FILL' 1" }}
+              >
+                {isRefreshing ? 'sync' : 'arrow_downward'}
+              </motion.span>
+            </motion.div>
+          )}
+        </AnimatePresence>
         {/* Header */}
         <motion.div variants={itemVariants} className="flex justify-between items-start gap-4 flex-wrap">
           <div>
@@ -560,6 +599,53 @@ export default function SubsPage() {
             {[0, 1, 2].map((i) => <SubSkeleton key={i} />)}
           </div>
         )}
+
+        {/* Subscription Audit Card */}
+        <AnimatePresence>
+          {burden && burden.burdenPct > 15 && !auditDismissed && active.length > 0 && mostExpensive && (
+            <motion.div
+              key="sub-audit-card"
+              initial={{ height: 0, opacity: 0, marginBottom: 0 }}
+              animate={{ height: 'auto', opacity: 1, marginBottom: 24 }}
+              exit={{ height: 0, opacity: 0, marginBottom: 0 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 26 }}
+              className="bg-tertiary-container border-4 border-inverse-surface hard-shadow p-5 relative overflow-hidden text-inverse-surface"
+            >
+              <div className="flex justify-between items-start mb-2">
+                <h4 className="font-headline font-black text-sm uppercase tracking-wider">
+                  🤖 Subscription Audit
+                </h4>
+                <button
+                  onClick={handleDismissAudit}
+                  className="cursor-pointer font-bold text-sm leading-none hover:text-error transition-colors"
+                  aria-label="Dismiss audit"
+                >
+                  ✕
+                </button>
+              </div>
+              <p className="font-body font-bold text-xs uppercase tracking-wide opacity-80">
+                Subs are eating {burden.burdenPct}% of your income.
+              </p>
+              <p className="font-body font-bold text-xs uppercase tracking-wide opacity-80 mt-1">
+                Biggest: {mostExpensive.name} at {formatMoney(mostExpensive.amount, currency)}/mo
+              </p>
+              <div className="mt-4 flex gap-3">
+                <button
+                  onClick={() => navigate('intel')}
+                  className="cursor-pointer font-headline font-black text-xs uppercase bg-white border-2 border-inverse-surface px-3 py-1.5 hover:bg-primary-container transition-colors"
+                >
+                  Open Intel →
+                </button>
+                <button
+                  onClick={handleDismissAudit}
+                  className="cursor-pointer font-headline font-black text-xs uppercase underline opacity-60 hover:opacity-100 transition-opacity"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Active subscriptions */}
         {!subsLoading && active.length > 0 && (

@@ -55,6 +55,7 @@ export enum NotificationType {
   BUCKET_MILESTONE = 'BUCKET_MILESTONE',
   BUDGET_ALERT = 'BUDGET_ALERT',
   PAYDAY = 'PAYDAY',
+  WEEKLY_DIGEST = 'WEEKLY_DIGEST',
   GENERAL = 'GENERAL',
 }
 
@@ -205,5 +206,7 @@ export interface Settings {
   currency: Currency;
   pushNotifs: boolean;
   budgetAlerts: boolean;
+  hasOnboarded?: boolean;
+  monthlyIncome?: number;
   updatedAt: Date;
 }

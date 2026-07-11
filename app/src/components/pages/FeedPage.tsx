@@ -3,12 +3,14 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useAppStore } from '@/store/app';
 import { useTransactions } from '@/hooks/useStash';
-import { formatMoney } from '@/lib/currencies';
+import { formatMoney, type CurrencyCode } from '@/lib/currencies';
 import { CATEGORY_META } from '@/lib/constants';
 import TransactionDetailDrawer, {
   type DrawerTransaction,
 } from '@/components/ui/TransactionDetailDrawer';
 import { motion, AnimatePresence } from 'framer-motion';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
+import type { Transaction } from '@/lib/types';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -122,6 +124,214 @@ function FilterChip({
   );
 }
 
+interface MerchantGroup {
+  id: string;
+  isGroup: true;
+  merchant: string;
+  category: string;
+  totalAmount: number;
+  items: Transaction[];
+}
+
+type FeedItem = (Transaction & { isGroup?: false }) | MerchantGroup;
+
+function isUnusualSpend(insight: string | null | undefined): boolean {
+  if (!insight) return false;
+  const keywords = ['unusual', 'spike', 'exceeded', 'high', 'warning', 'abnormal', 'anomaly'];
+  const text = insight.toLowerCase();
+  return keywords.some((kw) => text.includes(kw));
+}
+
+function calculateStreak(transactions: Transaction[]): number {
+  if (transactions.length === 0) return 0;
+  
+  const days = new Set<string>();
+  transactions.forEach((tx) => {
+    const d = new Date(tx.createdAt);
+    days.add(d.toDateString());
+  });
+
+  let streak = 0;
+  const current = new Date();
+  
+  let checkDate = new Date(current.toDateString());
+  if (!days.has(checkDate.toDateString())) {
+    checkDate.setDate(checkDate.getDate() - 1);
+  }
+
+  while (days.has(checkDate.toDateString())) {
+    streak++;
+    checkDate.setDate(checkDate.getDate() - 1);
+  }
+
+  return streak;
+}
+
+function groupMerchantTransactions(txs: Transaction[]): FeedItem[] {
+  const result: FeedItem[] = [];
+  const visited = new Set<string>();
+
+  for (let i = 0; i < txs.length; i++) {
+    const current = txs[i];
+    if (visited.has(current.id)) continue;
+
+    // Filter out income from proximity merchant grouping
+    if (current.type === 'INCOME') {
+      visited.add(current.id);
+      result.push({ ...current, isGroup: false });
+      continue;
+    }
+
+    const groupItems: Transaction[] = [current];
+    const currentDate = new Date(current.createdAt);
+
+    for (let j = i + 1; j < txs.length; j++) {
+      const candidate = txs[j];
+      if (visited.has(candidate.id)) continue;
+
+      if (candidate.type !== 'INCOME' && candidate.merchant.toLowerCase() === current.merchant.toLowerCase()) {
+        const candidateDate = new Date(candidate.createdAt);
+        const diffMs = Math.abs(currentDate.getTime() - candidateDate.getTime());
+        const diffDays = diffMs / (1000 * 60 * 60 * 24);
+
+        if (diffDays <= 7) {
+          groupItems.push(candidate);
+        }
+      }
+    }
+
+    if (groupItems.length > 1) {
+      const totalAmount = groupItems.reduce((sum, item) => sum + item.amount, 0);
+      groupItems.forEach(item => visited.add(item.id));
+      result.push({
+        id: `group-${current.id}`,
+        isGroup: true,
+        merchant: current.merchant,
+        category: current.category,
+        totalAmount,
+        items: groupItems,
+      });
+    } else {
+      visited.add(current.id);
+      result.push({
+        ...current,
+        isGroup: false,
+      });
+    }
+  }
+
+  return result;
+}
+
+function MerchantGroupRow({
+  group,
+  currency,
+  cardBg,
+  openDrawer,
+}: {
+  group: MerchantGroup;
+  currency: CurrencyCode;
+  cardBg: string;
+  openDrawer: (tx: Transaction) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  const containsUnusual = useMemo(() => {
+    return group.items.some((item) => isUnusualSpend(item.aiInsight));
+  }, [group.items]);
+
+  const meta = CATEGORY_META[group.category] ?? CATEGORY_META.OTHER;
+
+  return (
+    <div className={`border-4 border-inverse-surface hard-shadow ${cardBg}`}>
+      {/* Master Card Clickable Header */}
+      <div
+        onClick={() => setExpanded(!expanded)}
+        className="p-6 cursor-pointer select-none"
+      >
+        <div className="flex justify-between items-start gap-4 flex-wrap">
+          <div className="flex items-center gap-4 min-w-0">
+            <div className="w-14 h-14 shrink-0 bg-white border-2 border-inverse-surface flex items-center justify-center text-3xl hard-shadow-sm">
+              {meta.emoji}
+            </div>
+            <div className="min-w-0">
+              <h3 className="font-headline font-extrabold text-xl uppercase tracking-tight leading-tight flex items-center gap-2 flex-wrap">
+                <span className="truncate max-w-[200px]">{group.merchant}</span>
+                <span className="bg-white/20 border border-inverse-surface px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider shrink-0">
+                  {group.items.length} TXS
+                </span>
+                {containsUnusual && (
+                  <span className="bg-[#ffbdf3] border border-inverse-surface px-2 py-0.5 text-[9px] font-black uppercase tracking-wider shrink-0 text-inverse-surface">
+                    ⚠️ UNUSUAL spend
+                  </span>
+                )}
+              </h3>
+              <p className="text-on-surface-variant font-medium text-xs mt-0.5">
+                {group.items.length} transactions within 7 days · {meta.label}
+              </p>
+            </div>
+          </div>
+
+          <div className="text-right shrink-0 flex items-center gap-3">
+            <div>
+              <p className="font-headline font-black text-2xl leading-tight text-error">
+                −{formatMoney(group.totalAmount, currency)}
+              </p>
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] opacity-60 mt-0.5">
+                Total Spent
+              </p>
+            </div>
+            <span className="material-symbols-outlined text-2xl font-black transition-transform duration-200" style={{ transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+              keyboard_arrow_down
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Collapsible details sub-items */}
+      <AnimatePresence initial={false}>
+        {expanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+            className="overflow-hidden border-t-2 border-dashed border-inverse-surface bg-white/40 dark:bg-black/20"
+          >
+            <div className="p-4 space-y-3 pl-12">
+              {group.items.map((tx) => {
+                const txUnusual = isUnusualSpend(tx.aiInsight);
+                return (
+                  <div
+                    key={tx.id}
+                    onClick={() => openDrawer(tx)}
+                    className="flex justify-between items-center bg-white dark:bg-[#161d22] border-2 border-inverse-surface p-3 cursor-pointer hover:bg-surface-container transition-colors interactive-lift"
+                  >
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-headline font-bold text-xs uppercase">{formatTxDate(tx.createdAt)}</span>
+                        {txUnusual && (
+                          <span className="bg-[#ffbdf3] border border-inverse-surface px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wider text-inverse-surface">
+                            ⚠️ UNUSUAL
+                          </span>
+                        )}
+                      </div>
+                      {tx.note && <p className="text-xs opacity-60 mt-0.5">{tx.note}</p>}
+                    </div>
+                    <span className="font-headline font-black text-sm text-error">
+                      −{formatMoney(tx.amount, currency)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 // ─── FeedPage ─────────────────────────────────────────────────────────────────
 
 export default function FeedPage() {
@@ -160,10 +370,18 @@ export default function FeedPage() {
     return p;
   }, [activeCategory, activeType, dateFrom, dateTo]);
 
+  const containerRef = useRef<HTMLDivElement>(null);
+
   const { data, isLoading, refetch } = useTransactions(apiParams);
+
+  const { isPulling, pullDistance, isRefreshing } = usePullToRefresh(containerRef, () => {
+    refetch();
+  });
 
   // ── Client-side filtering (search + amount range) ────────────────────
   const allItems = data?.items ?? [];
+
+  const streak = useMemo(() => calculateStreak(allItems), [allItems]);
   const transactions = useMemo(() => {
     let items = allItems;
 
@@ -189,6 +407,41 @@ export default function FeedPage() {
   }, [allItems, searchQuery, amountMin, amountMax]);
 
   const total = transactions.length;
+
+  const feedItems = useMemo(() => groupMerchantTransactions(transactions), [transactions]);
+
+  const [pageSize, setPageSize] = useState(15);
+  const visibleFeedItems = useMemo(() => feedItems.slice(0, pageSize), [feedItems, pageSize]);
+
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (visibleFeedItems.length >= feedItems.length) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setPageSize((prev) => Math.min(prev + 15, feedItems.length));
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    const currentSentinel = sentinelRef.current;
+    if (currentSentinel) {
+      observer.observe(currentSentinel);
+    }
+
+    return () => {
+      if (currentSentinel) {
+        observer.unobserve(currentSentinel);
+      }
+    };
+  }, [feedItems, visibleFeedItems]);
+
+  useEffect(() => {
+    setPageSize(15);
+  }, [searchQuery, activeCategory, activeType, dateFrom, dateTo, amountMin, amountMax]);
 
   // ── Active filter count ───────────────────────────────────────────────
   const activeFilterCount = [
@@ -235,20 +488,48 @@ export default function FeedPage() {
   return (
     <>
       <motion.main
+        ref={containerRef}
         variants={containerVariants}
         initial="hidden"
         animate="show"
         className="max-w-3xl mx-auto px-4 pt-8 pb-8"
       >
+        <AnimatePresence>
+          {(isPulling || isRefreshing) && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 48, opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="flex items-center justify-center bg-primary-container border-b-2 border-inverse-surface mb-4"
+            >
+              <motion.span
+                animate={{ rotate: isRefreshing ? 360 : pullDistance * 3 }}
+                transition={isRefreshing ? { repeat: Infinity, duration: 0.6, ease: 'linear' } : { duration: 0 }}
+                className="material-symbols-outlined text-2xl"
+                style={{ fontVariationSettings: "'FILL' 1" }}
+              >
+                {isRefreshing ? 'sync' : 'arrow_downward'}
+              </motion.span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* ── Header ──────────────────────────────────────────────────── */}
         <motion.div
           variants={itemVariants}
           className="mb-6 flex justify-between items-start gap-4 flex-wrap"
         >
           <div>
-            <h1 className="font-headline font-black text-6xl tracking-tighter uppercase leading-none">
-              SMART FEED
-            </h1>
+            <div className="flex items-center gap-3">
+              <h1 className="font-headline font-black text-6xl tracking-tighter uppercase leading-none">
+                SMART FEED
+              </h1>
+              {streak > 0 && (
+                <div className="bg-[#cafd00] border-2 border-inverse-surface px-2.5 py-1 font-headline font-black text-[10px] uppercase hard-shadow-sm rotate-2 flex items-center gap-1 shrink-0 text-inverse-surface select-none">
+                  🔥 {streak} DAY STREAK
+                </div>
+              )}
+            </div>
             <p className="font-bold text-on-surface-variant uppercase tracking-[0.18em] text-xs mt-2">
               {isLoading
                 ? 'Loading...'
@@ -567,15 +848,35 @@ export default function FeedPage() {
         )}
 
         {/* ── Transaction feed ─────────────────────────────────────────── */}
-        {!isLoading && transactions.length > 0 && (
+        {!isLoading && feedItems.length > 0 && (
           <motion.div className="space-y-6" variants={containerVariants}>
             <AnimatePresence mode="popLayout">
-              {transactions.map((tx, i) => {
+              {visibleFeedItems.map((item, i) => {
+                if (item.isGroup) {
+                  const cardBg = CARD_THEMES[i % CARD_THEMES.length];
+                  return (
+                    <motion.div
+                      key={item.id}
+                      variants={itemVariants}
+                      layout
+                    >
+                      <MerchantGroupRow
+                        group={item}
+                        currency={currency}
+                        cardBg={cardBg}
+                        openDrawer={openDrawer}
+                      />
+                    </motion.div>
+                  );
+                }
+
+                const tx = item;
                 const meta = CATEGORY_META[tx.category] ?? CATEGORY_META.OTHER;
                 const isInc = tx.type === 'INCOME';
                 const cardBg = CARD_THEMES[i % CARD_THEMES.length];
                 const tags = (tx.tags as string[]) ?? [];
                 const isOptimistic = (tx as any).isOptimistic;
+                const txUnusual = isUnusualSpend(tx.aiInsight);
 
                 return (
                   <motion.article
@@ -604,6 +905,11 @@ export default function FeedPage() {
                             {isOptimistic && (
                               <span className="text-[9px] font-black tracking-wider text-white bg-black px-2 py-0.5 uppercase pulse-sync shrink-0">
                                 Syncing
+                              </span>
+                            )}
+                            {txUnusual && (
+                              <span className="bg-[#ffbdf3] border border-inverse-surface px-2 py-0.5 text-[9px] font-black uppercase tracking-wider shrink-0 text-inverse-surface">
+                                ⚠️ UNUSUAL spend
                               </span>
                             )}
                           </h3>
@@ -674,6 +980,13 @@ export default function FeedPage() {
                 );
               })}
             </AnimatePresence>
+
+            {/* Sentinel for infinite scroll virtualization */}
+            {pageSize < feedItems.length && (
+              <div ref={sentinelRef} className="h-10 w-full flex items-center justify-center font-headline font-bold text-xs uppercase opacity-50 py-4">
+                Loading more...
+              </div>
+            )}
           </motion.div>
         )}
 

@@ -4,6 +4,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { Transaction, Bucket, Notification, Settings } from '@/lib/types';
 import type { CreateTransactionInput, CreateBucketInput, UpdateBucketInput, UpdateSettingsInput } from '@/lib/schemas';
 import { useAppStore } from '@/store/app';
+import { haptics } from '@/lib/haptics';
+import { CATEGORY_META } from '@/lib/constants';
 
 function authHeaders() {
   return { 'Content-Type': 'application/json' };
@@ -89,9 +91,26 @@ export function useCreateTransaction() {
         qc.setQueryData(['stats'], context.prevStats);
       }
     },
+    onSuccess: (newTx) => {
+      haptics.success();
+      const budgets = qc.getQueryData<EnrichedBudget[]>(['budgets']) ?? [];
+      const budget  = budgets.find((b) => b.scope === 'CATEGORY' && b.category === newTx.category);
+      if (budget) {
+        const newSpent = budget.spent + newTx.amount;
+        const newPct = Math.round((newSpent / budget.amount) * 100);
+        if (newPct >= budget.alertThresholdPct) {
+          const emoji = CATEGORY_META[newTx.category as keyof typeof CATEGORY_META]?.emoji ?? '';
+          useAppStore.getState().showToast(
+            `${emoji} ${newPct}% of ${budget.name} budget used.`,
+            'info',
+          );
+        }
+      }
+    },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ['transactions'] });
       qc.invalidateQueries({ queryKey: ['stats'] });
+      qc.invalidateQueries({ queryKey: ['budgets'] });
     },
   });
 }
@@ -187,6 +206,7 @@ export function useCreateBucket() {
       return json.data as Bucket;
     },
     onSuccess: () => {
+      haptics.success();
       qc.invalidateQueries({ queryKey: ['buckets'] });
       qc.invalidateQueries({ queryKey: ['stats'] });
     },
@@ -207,6 +227,7 @@ export function useUpdateBucket() {
       return json.data as Bucket;
     },
     onSuccess: () => {
+      haptics.success();
       qc.invalidateQueries({ queryKey: ['buckets'] });
       qc.invalidateQueries({ queryKey: ['stats'] });
     },
@@ -387,7 +408,31 @@ export function useUpdateSettings() {
       if (input.darkMode !== undefined) setDarkMode(input.darkMode);
       if (input.currency !== undefined) setCurrency(input.currency as 'USD' | 'EUR' | 'INR' | 'GBP');
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['settings'] }),
+    onSuccess: () => {
+      haptics.success();
+      qc.invalidateQueries({ queryKey: ['settings'] });
+    },
+  });
+}
+
+export function useCompleteOnboarding() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { monthlyIncome: number }) => {
+      const res = await fetch('/api/settings', {
+        method: 'PATCH',
+        headers: authHeaders(),
+        body: JSON.stringify({ hasOnboarded: true, monthlyIncome: input.monthlyIncome }),
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error);
+      return json.data as Settings;
+    },
+    onSuccess: () => {
+      haptics.success();
+      qc.invalidateQueries({ queryKey: ['settings'] });
+      qc.invalidateQueries({ queryKey: ['stats'] });
+    },
   });
 }
 
@@ -422,6 +467,7 @@ export function useCreateAccount() {
       return json.data.account as Account;
     },
     onSuccess: () => {
+      haptics.success();
       qc.invalidateQueries({ queryKey: ['accounts'] });
       qc.invalidateQueries({ queryKey: ['stats'] });
     },
@@ -457,6 +503,7 @@ export function useTransferBetweenAccounts() {
       return json.data;
     },
     onSuccess: () => {
+      haptics.success();
       qc.invalidateQueries({ queryKey: ['accounts'] });
       qc.invalidateQueries({ queryKey: ['transactions'] });
       qc.invalidateQueries({ queryKey: ['stats'] });
@@ -512,6 +559,7 @@ export function useCreateBudget() {
       return json.data.budget as EnrichedBudget;
     },
     onSuccess: () => {
+      haptics.success();
       qc.invalidateQueries({ queryKey: ['budgets'] });
     },
   });
@@ -531,6 +579,7 @@ export function useDeleteBudget() {
       if (!json.success) throw new Error(json.error);
     },
     onSuccess: () => {
+      haptics.success();
       qc.invalidateQueries({ queryKey: ['budgets'] });
     },
   });
