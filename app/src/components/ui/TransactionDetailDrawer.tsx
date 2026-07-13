@@ -547,7 +547,7 @@ export default function TransactionDetailDrawer({
                                         animate={{ opacity: 1 }}
                                         exit={{ opacity: 0 }}
                                         onClick={() => {
-                                            haptics.light();
+                                            haptics.warning();
                                             setConfirmDelete(true);
                                         }}
                                         disabled={isOptimistic}

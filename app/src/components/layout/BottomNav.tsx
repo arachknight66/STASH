@@ -76,7 +76,8 @@ export default function BottomNav({ onFabAction }: BottomNavProps) {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 12, scale: 0.94 }}
             transition={{ type: 'spring', stiffness: 380, damping: 28 }}
-            className="fixed bottom-[88px] right-4 z-[48] flex flex-col-reverse gap-3 max-h-[70dvh] overflow-y-auto pb-1"
+            className="fixed right-4 z-[48] flex flex-col-reverse gap-3 max-h-[70dvh] overflow-y-auto pb-1"
+            style={{ bottom: 'calc(88px + env(safe-area-inset-bottom, 0px))' }}
           >
             {FAB_ACTIONS.map((item, i) => (
               <motion.button
@@ -118,7 +119,8 @@ export default function BottomNav({ onFabAction }: BottomNavProps) {
           setFabOpen((p) => !p);
         }}
         whileTap={{ scale: 0.92 }}
-        className="fixed bottom-[84px] right-4 z-[49] w-14 h-14 bg-secondary border-4 border-inverse-surface hard-shadow cursor-pointer flex items-center justify-center"
+        className="fixed right-4 z-[49] w-14 h-14 bg-secondary border-4 border-inverse-surface hard-shadow cursor-pointer flex items-center justify-center"
+        style={{ bottom: 'calc(84px + env(safe-area-inset-bottom, 0px))' }}
         aria-label="Quick actions"
         aria-expanded={fabOpen}
       >
@@ -135,7 +137,6 @@ export default function BottomNav({ onFabAction }: BottomNavProps) {
       {/* Bottom nav bar */}
       <nav
         className="fixed bottom-0 left-0 w-full z-50 bg-[#cafd00] dark:bg-[#1a2820] border-t-4 border-inverse-surface bottom-nav-safe"
-        style={{ height: '68px' }}
       >
         <div
           className="h-full grid relative"

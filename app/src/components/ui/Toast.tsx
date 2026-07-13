@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { useAppStore } from '@/store/app';
 import { motion, AnimatePresence } from 'framer-motion';
+import { haptics } from '@/lib/haptics';
 
 const TOAST_STYLES = {
   success: {
@@ -35,6 +36,9 @@ export default function Toast() {
 
   useEffect(() => {
     if (!toast) return;
+    if (toast.type === 'error') {
+      haptics.error();
+    }
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(dismiss, 2600);
     return () => {
