@@ -11,3 +11,8 @@
 ○ Compiling /login ...
  GET /login 200 in 5.3s (next.js: 4.9s, proxy.ts: 5ms, application-code: 406ms)
  GET /this-page-does-not-exist.html 404 in 676ms (next.js: 536ms, proxy.ts: 9ms, application-code: 131ms)
+✓ Compiled in 494ms
+ GET / 200 in 1655ms (next.js: 1292ms, proxy.ts: 64ms, application-code: 299ms)
+ GET /this-page-does-not-exist.html 404 in 111ms (next.js: 33ms, proxy.ts: 8ms, application-code: 70ms)
+ GET / 200 in 108ms (next.js: 9ms, proxy.ts: 7ms, application-code: 92ms)
+ GET /this-page-does-not-exist.html 404 in 102ms (next.js: 13ms, proxy.ts: 8ms, application-code: 81ms)

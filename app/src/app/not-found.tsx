@@ -1,6 +1,17 @@
+'use client';
+
+import { useEffect } from 'react';
 import Link from 'next/link';
+import { useAppStore } from '@/store/app';
 
 export default function NotFound() {
+  const darkMode = useAppStore((s) => s.darkMode);
+
+  // Sync dark mode class on <html> globally
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', darkMode);
+  }, [darkMode]);
+
   return (
     <div className="bg-[#f6f6f6] dark:bg-[#0c0f0f] text-[#0c0f0f] dark:text-[#f6f6f6] min-h-screen flex flex-col items-center justify-center font-body selection:bg-[#cafd00] selection:text-black transition-colors duration-200 px-6 relative z-0">
       {/* Google-Style Neobrutalist Grid Background */}
