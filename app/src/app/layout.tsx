@@ -23,7 +23,15 @@ export const metadata: Metadata = {
     default: 'STASH — Money Management for Gen Z',
   },
   description: 'STASH is a simple, privacy-first money management app built for Gen Z. Track spending, build savings goals, and understand where your money goes.',
-  keywords: ['personal finance', 'savings', 'budgeting', 'fintech'],
+  keywords: ['personal finance', 'savings', 'budgeting', 'fintech', 'gen z finance', 'money management app', 'privacy first finance tracker'],
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://stash.app'),
+  alternates: {
+    canonical: '/',
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
   manifest: '/manifest.json',
   icons: {
     icon: [
