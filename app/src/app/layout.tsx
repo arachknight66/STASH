@@ -18,8 +18,11 @@ const plusJakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: 'STASH – Smart Personal Finance',
-  description: 'Track spending, hit savings goals, and get AI-powered financial intel. STASH is your money, interpreted.',
+  title: {
+    template: '%s — STASH',
+    default: 'STASH — Money Management for Gen Z',
+  },
+  description: 'STASH is a simple, privacy-first money management app built for Gen Z. Track spending, build savings goals, and understand where your money goes.',
   keywords: ['personal finance', 'savings', 'budgeting', 'fintech'],
   manifest: '/manifest.json',
   icons: {
@@ -37,9 +40,23 @@ export const metadata: Metadata = {
     title: 'STASH',
   },
   openGraph: {
-    title: 'STASH – Smart Personal Finance',
-    description: 'Track spending, hit savings goals, and get AI-powered financial intel.',
+    title: 'STASH — Money Management for Gen Z',
+    description: 'STASH is a simple, privacy-first money management app built for Gen Z. Track spending, build savings goals, and understand where your money goes.',
     type: 'website',
+    images: [
+      {
+        url: '/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'STASH - Money Management for Gen Z',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'STASH — Money Management for Gen Z',
+    description: 'STASH is a simple, privacy-first money management app built for Gen Z. Track spending, build savings goals, and understand where your money goes.',
+    images: ['/og-image.png'],
   },
 };
 
