@@ -51,6 +51,21 @@ export default function Home() {
 
   const [shortcutsModal, setShortcutsModal] = useState<any>(null);
 
+  useEffect(() => {
+    const titles: Record<string, string> = {
+      dash: 'Dashboard — STASH',
+      feed: 'Transactions — STASH',
+      buckets: 'Goals — STASH',
+      bills: 'Bills — STASH',
+      subs: 'Subscriptions — STASH',
+      vault: 'Accounts — STASH',
+      budgets: 'Budgets — STASH',
+      intel: 'Insights — STASH'
+    };
+    document.title = titles[currentPage] || 'Dashboard — STASH';
+  }, [currentPage]);
+
+
 
   // FAB handler — navigates to the right page then sets the pending action
   // so the mounted page can open the correct modal

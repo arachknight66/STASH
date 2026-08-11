@@ -101,8 +101,14 @@ export default function LandingPage() {
             NOT STRAPPED.
           </h1>
           <p className="font-bold text-lg leading-relaxed opacity-80 max-w-xl">
-            A privacy-first personal finance tracker with zero bank syncs. Log transactions instantly, calculate goal targets, and visual-audit subscription overheads.
+            Money management built for Gen Z. A privacy-first personal finance tracker with zero bank syncs. Log transactions instantly, calculate goal targets, and visual-audit subscription overheads.
           </p>
+          <Link
+            href="/login"
+            className="bg-[#cafd00] text-black border-4 border-inverse-surface px-8 py-4 font-headline font-black text-lg uppercase hard-shadow hover:-translate-x-1 hover:-translate-y-1 transition-all cursor-pointer mt-2 block w-fit"
+          >
+            Start Stashing →
+          </Link>
 
           {/* Interactive Controller Box */}
           <div className="w-full max-w-lg bg-white dark:bg-[#12161a] border-4 border-inverse-surface p-5 hard-shadow mt-2">
@@ -381,6 +387,73 @@ export default function LandingPage() {
                 </motion.div>
               )}
             </AnimatePresence>
+          </div>
+        </div>
+      </section>
+
+
+      {/* FAQ Section */}
+      <section className="bg-[#f6f6f6] dark:bg-[#0c0f0f] py-20 px-6 transition-colors duration-200">
+        <div className="max-w-4xl mx-auto w-full">
+          <div className="flex flex-col items-center gap-4 text-center mb-12">
+            <span className="bg-[#cafd00] text-black border-2 border-inverse-surface font-headline font-black text-xs uppercase tracking-widest px-3 py-1">
+              🤔 FAQ
+            </span>
+            <h2 className="font-headline font-black text-4xl md:text-5xl uppercase tracking-tight">
+              COMMONLY ASKED QUESTIONS
+            </h2>
+          </div>
+
+          <div className="flex flex-col gap-4">
+            <details className="group bg-white dark:bg-[#12161a] border-4 border-inverse-surface hard-shadow-sm cursor-pointer [&_summary::-webkit-details-marker]:hidden">
+              <summary className="flex items-center justify-between p-6 font-headline font-black text-lg md:text-xl uppercase">
+                1. Is STASH free to use?
+                <span className="transition group-open:rotate-45 text-2xl leading-none">+</span>
+              </summary>
+              <div className="px-6 pb-6 pt-2 font-bold text-sm text-on-surface-variant border-t-2 border-inverse-surface mt-2 opacity-90 leading-relaxed">
+                Yes, STASH is completely free to use. It runs locally as a PWA and uses your browser&apos;s local storage and a free tier fallback database, meaning there are no hidden subscriptions or premium gates.
+              </div>
+            </details>
+
+            <details className="group bg-[#ffbdf3] text-black border-4 border-inverse-surface hard-shadow-sm cursor-pointer [&_summary::-webkit-details-marker]:hidden">
+              <summary className="flex items-center justify-between p-6 font-headline font-black text-lg md:text-xl uppercase">
+                2. Does STASH connect to my bank account?
+                <span className="transition group-open:rotate-45 text-2xl leading-none">+</span>
+              </summary>
+              <div className="px-6 pb-6 pt-2 font-bold text-sm border-t-2 border-inverse-surface mt-2 opacity-90 leading-relaxed">
+                No. STASH intentionally uses zero bank syncs to protect your privacy and build accountability. You log transactions manually to stay perfectly aware of your spending.
+              </div>
+            </details>
+
+            <details className="group bg-white dark:bg-[#12161a] border-4 border-inverse-surface hard-shadow-sm cursor-pointer [&_summary::-webkit-details-marker]:hidden">
+              <summary className="flex items-center justify-between p-6 font-headline font-black text-lg md:text-xl uppercase">
+                3. Is my financial data private?
+                <span className="transition group-open:rotate-45 text-2xl leading-none">+</span>
+              </summary>
+              <div className="px-6 pb-6 pt-2 font-bold text-sm text-on-surface-variant border-t-2 border-inverse-surface mt-2 opacity-90 leading-relaxed">
+                Absolutely. Because STASH doesn&apos;t connect to external financial institutions, your data remains yours. It can be run fully offline in your browser, keeping your logs secure from third-party mining.
+              </div>
+            </details>
+
+            <details className="group bg-[#bba2ff] text-black border-4 border-inverse-surface hard-shadow-sm cursor-pointer [&_summary::-webkit-details-marker]:hidden">
+              <summary className="flex items-center justify-between p-6 font-headline font-black text-lg md:text-xl uppercase">
+                4. Can I use STASH offline?
+                <span className="transition group-open:rotate-45 text-2xl leading-none">+</span>
+              </summary>
+              <div className="px-6 pb-6 pt-2 font-bold text-sm border-t-2 border-inverse-surface mt-2 opacity-90 leading-relaxed">
+                Yes! STASH is a Progressive Web App (PWA) built with an offline-first architecture. You can log expenses while on a plane or subway, and it will save everything locally until you reconnect.
+              </div>
+            </details>
+
+            <details className="group bg-white dark:bg-[#12161a] border-4 border-inverse-surface hard-shadow-sm cursor-pointer [&_summary::-webkit-details-marker]:hidden">
+              <summary className="flex items-center justify-between p-6 font-headline font-black text-lg md:text-xl uppercase">
+                5. How does STASH help me understand my spending?
+                <span className="transition group-open:rotate-45 text-2xl leading-none">+</span>
+              </summary>
+              <div className="px-6 pb-6 pt-2 font-bold text-sm text-on-surface-variant border-t-2 border-inverse-surface mt-2 opacity-90 leading-relaxed">
+                STASH forces you to actively track your budget. By maintaining logging streaks, calculating savings ETAs based on income, and highlighting subscriptions, you naturally build financial mindfulness.
+              </div>
+            </details>
           </div>
         </div>
       </section>
