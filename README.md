@@ -2,6 +2,8 @@
 
 **STASH** is a Gen-Z personal finance PWA designed to help you track your coins, build savings, and hit goals without compromising your data privacy. No spreadsheets (boomer vibes), no bank credentials linking (not it), just pure financial control. 🤫
 
+[![Watch the STASH launch video](brag-output-2026-10-13-151449/brag.jpg)](brag-output-2026-10-13-151449/brag.mp4)
+
 ---
 
 ## 🤫 Why STASH? (No Cap)
